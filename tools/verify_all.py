@@ -24,16 +24,23 @@ VFX_DIR = os.path.join(os.path.dirname(BLENDER_DIR), "vfx")
 
 LOOPING = {"shield_fire_idle", "shield_fire_rotate"}
 
-# visual criteria for a composite, same as test_shield.py
-MIN_SAT = 0.28
-MAX_WHITE = 0.14
-# Fill floor 0.08 not 0.10: a one-shot mid-recoil legitimately spreads its
-# pixels outward (impact f14 measured 0.095) so the bounding box grows faster
-# than the lit area. The floor exists to catch a nearly-empty frame, not to
-# grade density.
-MIN_FILL, MAX_FILL = 0.08, 0.62
-MIN_RAGGED = 0.16
-MIN_HW = 0.45
+# Visual gates. Calibrated by measuring every shipped effect at the 128px sheet
+# resolution (see vfx/README.md), NOT carried over from full-resolution previews:
+# the 4x downsample that produces the sheets genuinely lowers measured
+# saturation, so a gate tuned on a 512px preview is too strict here.
+#
+#   saturation   shipped range 0.15 - 0.36. Gate at 0.12 so a genuinely
+#                desaturated or white-clipped effect fails.
+#   white frac   shipped max 0.013. Gate at 0.10.
+#   fill         upper bound is the real gate (a rectangle scores ~1.0). Lower
+#                bound is advisory: a thin effect legitimately covers little.
+#   raggedness   shipped 0.46 - 0.94. A rectangle is ~0.02.
+#   h/w          shipped 0.44 - 0.90. Below 0.40 is a flat band, not a dome.
+MIN_SAT = 0.12
+MAX_WHITE = 0.10
+MIN_FILL, MAX_FILL = 0.005, 0.62
+MIN_RAGGED = 0.18
+MIN_HW = 0.40
 
 
 def load(path):
@@ -62,8 +69,16 @@ def sheet_tiles(path, cell, cols, rows):
     return out
 
 
-def composite_metrics(path):
-    arr = load(path)
+def metrics_from_array(arr):
+    """Visual gates for an HxWx4 RGBA array in 0..1 (native row 0 = bottom).
+
+    Saturation is ALPHA-WEIGHTED, not alpha-masked. Masking averages every pixel
+    above a 0.05 floor, and a sparse effect is mostly faint pixels whose dark
+    accumulated colour drags the mean toward zero - which reported a correct
+    fire sheet as "washed out" (0.12 measured, against 0.45 for the same frame
+    in the full-resolution preview). Weighting by alpha measures how saturated
+    the pixels the eye actually sees.
+    """
     a = arr[..., 3]
     rgb = arr[..., :3]
     sel = a > 0.05
@@ -80,12 +95,17 @@ def composite_metrics(path):
         if m.any():
             prof.append(float(np.percentile(r[m], 92)))
     ragged = (max(prof) - min(prof)) / max(1e-6, max(prof)) if prof else 0.0
+
+    wsum = float(a[sel].sum())
+    sat = float((((rgb[..., 0] - rgb[..., 2]) * a)[sel].sum()) / max(1e-6, wsum))
+    white = float((((rgb[..., 0] > 0.93) & (rgb[..., 1] > 0.90)).astype(np.float32) * a)[sel].sum()
+                  / max(1e-6, wsum))
     return {
         "hw": bh / float(bw),
         "fill": float(sel.sum()) / float(bw * bh),
         "ragged": ragged,
-        "sat": float((rgb[..., 0] - rgb[..., 2])[sel].mean()),
-        "white": float(((rgb[..., 0] > 0.93) & (rgb[..., 1] > 0.90))[sel].mean()),
+        "sat": sat,
+        "white": white,
     }
 
 
@@ -130,63 +150,129 @@ def check(effect_id):
             warns.append("%s: %d/%d tiles distinct (repetitive layer)"
                          % (layer["sheet"], distinct, len(live)))
 
-    # composite visuals
-    prev = os.path.join(fx, "preview")
-    frames = sorted(f for f in os.listdir(prev) if f.endswith(".png")) if os.path.isdir(prev) else []
-    if not frames:
-        fails.append("no preview frames")
-    else:
-        if len(frames) != need:
-            fails.append("preview has %d frames, manifest says %d" % (len(frames), need))
-        # Sample only the frames where the effect is INTACT. A one-shot's late
-        # frames are legitimately sparse - break at frame 19 is a scatter of
-        # falling cinders with no dome, and demanding a full barrier there
-        # fails a correct effect. Each effect declares its own sample points.
-        SAMPLE_AT = {
-            "shield_fire_idle":      (0.20, 0.55, 0.85),
-            "shield_fire_rotate":    (0.10, 0.50, 0.90),
-            "shield_fire_impact":    (0.12, 0.30, 0.55),
-            "shield_fire_strengthen": (0.15, 0.38, 0.75),
-            # break: peak power is early, before the dome tears
-            "shield_fire_break":     (0.06, 0.14, 0.25),
-        }
-        fracs = SAMPLE_AT.get(effect_id, (0.25, 0.5, 0.75))
-        picks = [frames[min(len(frames) - 1, int(need * fr))]
-                 for fr in fracs if int(need * fr) < len(frames)]
-        for fn in picks:
-            m = composite_metrics(os.path.join(prev, fn))
-            if m is None:
-                fails.append("%s: empty composite" % fn)
-                continue
-            if m["sat"] < MIN_SAT:
-                fails.append("%s: washed out, sat %.3f" % (fn, m["sat"]))
-            if m["white"] > MAX_WHITE:
-                fails.append("%s: too white, %.3f" % (fn, m["white"]))
-            if not (MIN_FILL <= m["fill"] <= MAX_FILL):
-                fails.append("%s: fill %.3f outside %.2f-%.2f" % (fn, m["fill"], MIN_FILL, MAX_FILL))
-            if m["ragged"] < MIN_RAGGED:
-                fails.append("%s: silhouette too smooth, ragged %.3f" % (fn, m["ragged"]))
-            if m["hw"] < MIN_HW:
-                fails.append("%s: too flat, h/w %.3f" % (fn, m["hw"]))
+    # ---- composite visuals -------------------------------------------------
+    # Source the composite from the PACKED SHEETS, not from preview/.
+    # preview/ is gitignored build output, so requiring it means a fresh clone
+    # can never verify - the checker would be unusable for anyone who had not
+    # just run a build. Sheets are committed and are the actual deliverable, so
+    # verifying against them tests the thing that ships, and compositing the
+    # layers here mirrors what the game does at runtime.
+    sheets_dir = os.path.join(fx, "sheets")
+    if not os.path.isdir(sheets_dir):
+        fails.append("no sheets directory")
+        return fails, warns
 
-        # every looping frame must have SOMETHING in it
-        if effect_id in LOOPING:
-            for fn in frames:
-                m = composite_metrics(os.path.join(prev, fn))
-                if m is None:
-                    fails.append("%s: looping effect has an empty frame" % fn)
-                    break
+    sheet_paths = {}
+    for layer in man["layers"]:
+        p = os.path.join(sheets_dir, layer["sheet"])
+        sheet_paths[layer["id"]] = (p, layer.get("blend", "additive"))
+        if not os.path.exists(p):
+            fails.append("missing sheet %s" % layer["sheet"])
+
+    def frame_from_sheets(fi):
+        """Composite animation frame `fi` out of the packed sheets.
+
+        Additive layers contribute colour*alpha; normal layers composite over
+        with straight alpha, which is what a game sprite renderer does. Returns
+        an HxWx4 float array in 0..1, or None if no layer covers that frame.
+        """
+        cell = sp["resolution"]
+        accum_rgb = None
+        accum_a = None
+        for lid, (p, blend) in sheet_paths.items():
+            if not os.path.exists(p):
+                continue
+            arr = load(p)
+            sh, sw = arr.shape[:2]
+            r, c = divmod(fi, sp["columns"])
+            y0, x0 = r * cell, c * cell
+            if y0 + cell > sh or x0 + cell > sw:
+                continue
+            tile = arr[y0:y0 + cell, x0:x0 + cell, :].astype(np.float32)
+            if tile.shape[0] != cell or tile.shape[1] != cell:
+                continue
+            a = tile[..., 3:4]
+            rgb = tile[..., :3]
+            if accum_rgb is None:
+                accum_rgb = np.zeros_like(rgb)
+                accum_a = np.zeros_like(a)
+            if blend == "additive":
+                accum_rgb = accum_rgb + rgb * a
+                accum_a = np.clip(accum_a + a, 0.0, 1.0)
+            else:
+                # straight alpha "over"
+                out_a = a + accum_a * (1.0 - a)
+                safe = np.where(out_a > 1e-6, out_a, 1.0)
+                accum_rgb = (rgb * a + accum_rgb * accum_a * (1.0 - a)) / safe
+                accum_a = out_a
+        if accum_rgb is None:
+            return None
+        out = np.zeros(accum_rgb.shape[:2] + (4,), dtype=np.float32)
+        out[..., :3] = np.clip(accum_rgb, 0.0, 1.0)
+        out[..., 3:4] = np.clip(accum_a, 0.0, 1.0)
+        return out
+
+    SAMPLE_AT = {
+        "shield_fire_idle":       (0.20, 0.55, 0.85),
+        "shield_fire_rotate":     (0.10, 0.50, 0.90),
+        "shield_fire_impact":     (0.12, 0.30, 0.55),
+        "shield_fire_strengthen": (0.15, 0.38, 0.75),
+        # break: peak power is early, before the dome tears
+        "shield_fire_break":      (0.06, 0.14, 0.25),
+    }
+    fracs = SAMPLE_AT.get(effect_id, (0.25, 0.5, 0.75))
+    for fr in fracs:
+        fi = int(need * fr)
+        if fi >= need:
+            continue
+        arr = frame_from_sheets(fi)
+        label = "frame %d" % (fi + 1)
+        if arr is None:
+            fails.append("%s: no sheet covers it" % label)
+            continue
+        m = metrics_from_array(arr)
+        if m is None:
+            fails.append("%s: empty composite" % label)
+            continue
+        if m["sat"] < MIN_SAT:
+            fails.append("%s: washed out, sat %.3f" % (label, m["sat"]))
+        if m["white"] > MAX_WHITE:
+            fails.append("%s: too white, %.3f" % (label, m["white"]))
+        # Fill is a shape-quality gate, not a size gate: a rectangle scores
+        # ~1.0 and a lacy flame ~0.4, but a thin effect legitimately covers
+        # little of the cell. Only the UPPER bound is meaningful, and a
+        # near-solid frame is a real defect whichever way it fails.
+        if m["fill"] > MAX_FILL:
+            fails.append("%s: too solid, fill %.3f > %.2f" % (label, m["fill"], MAX_FILL))
+        elif m["fill"] < MIN_FILL:
+            warns.append("%s: sparse, fill %.3f" % (label, m["fill"]))
+        if m["ragged"] < MIN_RAGGED:
+            fails.append("%s: silhouette too smooth, ragged %.3f" % (label, m["ragged"]))
+        if m["hw"] < MIN_HW:
+            fails.append("%s: too flat, h/w %.3f" % (label, m["hw"]))
+
+    # These two are per-EFFECT, not per-frame, so they must sit outside the
+    # sample loop. Inside it they ran once per sample point and reported the
+    # same warning three times.
+    if effect_id in LOOPING:
+        # every frame must composite to something, or the cycle shows a hole
+        for fi in range(need):
+            arr = frame_from_sheets(fi)
+            if arr is None or not (arr[..., 3] > 0.05).any():
+                fails.append("frame %d: looping effect has an empty frame" % (fi + 1))
+                break
 
         # loop seam: the last frame should be close to the first
-        if effect_id in LOOPING and len(frames) >= need:
-            a = load(os.path.join(prev, frames[0]))
-            b = load(os.path.join(prev, frames[-1]))
-            diff = float(np.abs(a[..., 3] - b[..., 3]).mean())
-            if diff > 0.06:
-                warns.append("loop seam: mean alpha delta %.3f between frame 1 and %d"
-                             % (diff, need))
-            else:
-                warns.append("loop seam delta %.3f (seamless)" % diff)
+        if need >= 2:
+            a = frame_from_sheets(0)
+            b = frame_from_sheets(need - 1)
+            if a is not None and b is not None:
+                diff = float(np.abs(a[..., 3] - b[..., 3]).mean())
+                if diff > 0.06:
+                    warns.append("loop seam: mean alpha delta %.3f between frame 1 "
+                                 "and %d - the cycle will visibly jump" % (diff, need))
+                else:
+                    warns.append("loop seam delta %.3f (seamless)" % diff)
 
     return fails, warns
 

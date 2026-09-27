@@ -7,6 +7,24 @@ runtime code.
 - **Working rules:** [AGENTS.md](AGENTS.md)
 - **VFX pipeline, read before authoring:** [vfx/README.md](vfx/README.md)
 
+## Licence
+
+The repository is licensed in two parts, because it holds two different kinds of
+thing:
+
+| What | Licence |
+|---|---|
+| Artwork — rendered and procedurally-generated images, Blender scenes, docs | **[CC BY 4.0](LICENSE)** |
+| Tooling — the Python under `tools/` | **[MIT](LICENSE-CODE)** |
+
+**You are free to use the artwork, including commercially, and to modify it.**
+The one condition is attribution — see [NOTICE.md](NOTICE.md) for a copy-paste
+credit line.
+
+The code is MIT rather than CC BY on purpose: CC BY's attribution condition is
+incompatible with the licences open-source software is normally distributed
+under, and Creative Commons advises against applying it to source.
+
 ## First five minutes
 
 ```bash

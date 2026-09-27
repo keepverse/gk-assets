@@ -216,3 +216,33 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# Blender / asset build output
+# ---------------------------------------------------------------------------
+# sheets/ is deliberately NOT ignored. The packed sprite sheets are the
+# deliverable the game loads, and they follow the same contract as the
+# game's existing web/fusion-rpg-web/public/actor-hud-elements/*.png.
+
+# Per-frame renders: the packer's input, fully regenerable by re-running
+# tools/<effect>.py. ~756 files / 49 MB for the fire shield set alone.
+vfx/*/sequences/
+
+# Flat composite frames: for human review only, rewritten on every build.
+vfx/*/preview/
+
+# Scratch output from the test tools.
+tmp/
+tools/.smoke.png
+tools/**/.smoke.png
+
+# Blender's rolling save next to each .blend - a duplicate of the previous
+# commit's file that only exists to recover an in-progress save.
+*.blend1
+
+# Exported interchange formats. Keep these in the working tree during an
+# export session but do not commit them; re-export from the .blend sources.
+/export/
+*.fbx
+*.gltf
+*.glb

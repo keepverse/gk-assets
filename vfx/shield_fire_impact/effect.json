@@ -1,0 +1,67 @@
+{
+  "$comment": "Manifest for a VFX sub-program. The viewer tool reads these; Blender scripts write them. Adding a new effect = add a new directory with one of these.",
+
+  "id": "shield_fire_impact",
+  "name": "Fire Shield - Impact",
+  "description": "The shield absorbs a hit. A flare punches at the contact point, a ripple of bright beads races around the barrier from that point, the flames recoil away from the impact and spring back, and sparks arc off. One-shot; does not loop.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+
+  "sprite": {
+    "$comment": "resolution is the GAMEPLAY cell. Authoring is 512px and pack_sheets downsamples to 128.",
+    "resolution": 128,
+    "frameCount": 24,
+    "fps": 24,
+    "durationMs": 1000,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 4
+  },
+
+  "anchor": {
+    "x": 0.5,
+    "y": 0.5
+  },
+
+  "blend": "additive",
+
+  "layers": [
+    {
+      "id": "core",
+      "sheet": "core.png",
+      "blend": "additive",
+      "note": "Small pool that brightens with the hit. Kept small on purpose - at 2.6x it became a second pale egg competing with the flare."
+    },
+    {
+      "id": "flames",
+      "sheet": "flames.png",
+      "blend": "additive",
+      "note": "14 cards. Cards near the impact angle are pushed outward, knocked flat and briefly over-bright; the recoil is weighted by angular distance from HIT_ANGLE so the hit reads as directional."
+    },
+    {
+      "id": "rim",
+      "sheet": "rim.png",
+      "blend": "additive",
+      "note": "20 beads travelling around the ring from the hit point over frames 2-13, brightest mid-travel."
+    },
+    {
+      "id": "flare",
+      "sheet": "flare.png",
+      "blend": "additive",
+      "note": "The contact flash, at HIT_ANGLE (+X). Punched outward over frames 1-3, decayed to nothing by frame 16."
+    },
+    {
+      "id": "sparks",
+      "sheet": "sparks.png",
+      "blend": "additive",
+      "note": "16 particles thrown from the contact point with drag and gravity, staggered delays 2-6."
+    }
+  ],
+
+  "hitAngle": 0.0,
+
+  "knownIssues": [
+    "The hit direction is authored at +X and baked. The game would need a mirrored sheet or a horizontal flip to strike from the left.",
+    "Ripple beads travel 0.85 of a full revolution rather than all the way round, so there is a visible seam on the far side."
+  ]
+}

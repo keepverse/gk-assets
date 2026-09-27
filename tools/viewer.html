@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VFX Viewer</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #12141a; color: #e6e8ee;
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid; grid-template-columns: 280px 1fr; height: 100vh;
+  }
+  aside { background: #171a21; border-right: 1px solid #262a35; overflow-y: auto; padding: 16px; }
+  main { display: flex; flex-direction: column; overflow: hidden; }
+
+  h1 { font-size: 15px; margin: 0 0 4px; letter-spacing: .02em; }
+  .sub { color: #7c8496; font-size: 12px; margin-bottom: 18px; }
+
+  .fx { padding: 10px 12px; border: 1px solid #262a35; border-radius: 8px;
+        margin-bottom: 8px; cursor: pointer; background: #1c2029; }
+  .fx:hover { border-color: #3a4152; }
+  .fx.active { border-color: #6d8cff; background: #1e2433; }
+  .fx b { display: block; font-size: 13px; }
+  .fx span { color: #7c8496; font-size: 11px; }
+  .tag { display: inline-block; margin-top: 4px; padding: 1px 6px; border-radius: 20px;
+         font-size: 10px; background: #2a3040; color: #9aa4bb; }
+  .tag.wip { background: #4a3a12; color: #f0c060; }
+
+  .stage { flex: 1; position: relative; min-height: 0; overflow: hidden; }
+  .stage canvas { display: block; }
+
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+             padding: 10px 16px; border-top: 1px solid #262a35; background: #171a21; }
+  button, select {
+    background: #222735; color: #dfe3ec; border: 1px solid #2f3646;
+    border-radius: 6px; padding: 6px 11px; cursor: pointer; font: inherit; font-size: 12px;
+  }
+  button:hover, select:hover { border-color: #47526b; }
+  button.on { background: #2c3a63; border-color: #6d8cff; }
+  .grow { flex: 1; }
+  label.chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #aab2c5; cursor: pointer; }
+  label.chk input { accent-color: #6d8cff; }
+
+  .meta { padding: 12px 16px; border-top: 1px solid #262a35; background: #141720;
+          font-size: 12px; color: #8b93a6; max-height: 30%; overflow-y: auto; }
+  .meta code { color: #a9b6d6; }
+  .meta .issues { color: #d8a657; }
+  .meta ul { margin: 4px 0 0 16px; padding: 0; }
+  .meta li { margin-bottom: 3px; }
+  .err { color: #ff8080; padding: 16px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <aside>
+    <h1>VFX Sub-Programs</h1>
+    <div class="sub">Blender &rarr; sprite sheet &rarr; Phaser preview</div>
+    <div id="list"></div>
+  </aside>
+
+  <main>
+    <div class="stage" id="stage"></div>
+    <div class="toolbar">
+      <button id="play">Pause</button>
+      <label class="chk"><input type="checkbox" id="loop" checked /> loop</label>
+      <label class="chk"><input type="checkbox" id="debug" /> bounds</label>
+      <label class="chk">fps
+        <select id="fps">
+          <option value="12">12</option>
+          <option value="24" selected>24</option>
+          <option value="30">30</option>
+          <option value="60">60</option>
+        </select>
+      </label>
+      <label class="chk">scale
+        <select id="scale">
+          <option value="1">1&times;</option>
+          <option value="2" selected>2&times;</option>
+          <option value="3">3&times;</option>
+          <option value="4">4&times;</option>
+        </select>
+      </label>
+      <label class="chk">bg
+        <select id="bg">
+          <option value="0x1f2430" selected>dark</option>
+          <option value="0x4a7a2e">lawn</option>
+          <option value="0x000000">black</option>
+          <option value="0xffffff">white</option>
+        </select>
+      </label>
+      <div class="grow"></div>
+      <span id="frame" style="font-size:12px;color:#7c8496"></span>
+    </div>
+    <div class="meta" id="meta"></div>
+  </main>
+
+<!--
+  Plain static file, no build step, so the bare specifier "phaser" cannot
+  resolve in a browser and an import map is required.
+
+  gk-assets is not the web workspace, so there is no relative path to Phaser
+  from here. The import map therefore points at a virtual route,
+  /__phaser/phaser.esm.js, which tools/serve.py resolves to whichever Phaser
+  build it found on disk. An import map is parsed BEFORE module resolution, so
+  this cannot be substituted at runtime from the page - the server has to do
+  it. If serve.py is not running, or finds nothing, the module import throws
+  and the catch below shows a plain error instead of a blank stage.
+-->
+<script type="importmap">
+{
+  "imports": {
+    "phaser": "/__phaser/phaser.esm.js"
+  }
+}
+</script>
+<script type="module">
+// A failed engine import throws HERE, before any of the try/catch below, and
+// leaves a blank page. Probe the route first so the failure is legible.
+try {
+  const probe = await fetch("/__phaser/phaser.esm.js", { method: "HEAD" });
+  if (!probe.ok) throw new Error(`HTTP ${probe.status}`);
+} catch (e) {
+  document.querySelector("main").innerHTML =
+    `<div class="err">Phaser engine could not be loaded (${e.message}).\n\n` +
+    `The viewer imports Phaser via a virtual route that tools/serve.py resolves.\n` +
+    `Start the server with serve.py, or point it at a build:\n` +
+    `  python tools/serve.py --phaser &lt;path to phaser.esm.js&gt;\n\n` +
+    `Building and verifying assets do not need Phaser - only this preview does.</div>`;
+  throw new Error("phaser unavailable");
+}
+
+const Phaser = (await import("phaser")).default;
+
+const $ = (id) => document.getElementById(id);
+let game = null, current = null, layers = [], frameAccum = 0, playing = true, loop = true, at = 0;
+
+/* ------------------------------------------------------------------ *
+ * Layered sprite playback.
+ *
+ * Each layer is an independent Phaser Sprite with its own frame index, so
+ * effects with different lifetimes (a 4-frame flash inside a 24-frame smoke)
+ * play correctly without baking a combined sheet. Phaser anims are not used:
+ * we drive frameIndex manually for frame-accurate scrubbing and looping.
+ * ------------------------------------------------------------------ */
+class Layer extends Phaser.GameObjects.Sprite {
+  constructor(scene, x, y, texture, meta) {
+    super(scene, x, y, texture, 0);
+    this.frameMeta = meta;
+    this.setOrigin(0.5, 0.5);
+    // Additive for energy (flash/sparks/embers), normal for smoke so it can
+    // actually occlude. Mixing these wrongly is why smoke looked invisible
+    // or the whole effect looked washed out.
+    this.setBlendMode(meta.blend === "additive" ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL);
+    scene.add.existing(this);
+  }
+  setFrameAt(i) {
+    const f = Math.min(i, this.frameMeta.frameCount - 1);
+    this.setFrame(f);
+    this.currentFrame = f;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Turntable width curve.
+ *
+ * A baked Z-rotation sheet is rendered square, but a dome turning on Z is not
+ * square on screen: it is widest face-on and narrowest edge-on. Playing the
+ * sheet as plain squares reads as a flat cross-fade. Scaling X by cos(turn)
+ * restores the silhouette.
+ *
+ * `minScale` keeps the edge-on frame from collapsing to a 1px sliver, which
+ * is what actually sells "thin" without disappearing.
+ * ------------------------------------------------------------------ */
+const TURNTABLE_MIN_SCALE = 0.22;
+
+function turntableWidthScale(frameIndex, steps) {
+  if (!steps) return 1;
+  const turn = (frameIndex / steps) * Math.PI * 2;
+  return TURNTABLE_MIN_SCALE + (1 - TURNTABLE_MIN_SCALE) * Math.abs(Math.cos(turn));
+}
+
+/* ------------------------------------------------------------------ *
+ * One scene per effect.
+ *
+ * Assets are queued in preload() rather than pushed from outside: a Scene
+ * does not have this.textures until it has booted, so calling load.spritesheet
+ * on it from the page scope throws. Booting a fresh scene per effect also
+ * guarantees the previous effect's sprites are torn down instead of ghosting.
+ * ------------------------------------------------------------------ */
+class Demo extends Phaser.Scene {
+  constructor(effect) {
+    super(`fx:${effect.id}`);
+    this.effect = effect;
+    this.zoom = 2;
+    this.currentFps = parseFloat($("fps").value) || 24;
+  }
+
+  preload() {
+    const e = this.effect;
+    for (const layer of e.layers) {
+      this.load.spritesheet(`${e.id}:${layer.id}`, `../vfx/${e.id}/sheets/${layer.sheet}`, {
+        frameWidth: e.sprite.resolution,
+        frameHeight: e.sprite.resolution,
+        endFrame: e.sprite.frameCount - 1,
+      });
+    }
+  }
+
+  create() {
+    layers = [];
+    const e = this.effect;
+    // Smoke sits behind so the bright layers read in front; additive layers
+    // are order-independent anyway, but smoke must be behind to occlude.
+    const z = { smoke: 1, embers: 2, sparks: 2, flash: 3 };
+    for (const meta of e.layers) {
+      const s = new Layer(this, 0, 0, `${e.id}:${meta.id}`, {
+        frameCount: e.sprite.frameCount, blend: meta.blend,
+      });
+      s.setDepth(z[meta.id] ?? 0);
+      s.setFrameAt(0);
+      layers.push(s);
+    }
+    at = 0;
+    frameAccum = 0;
+    this.resize();
+    $("frame").textContent = `frame 1 / ${e.sprite.frameCount}`;
+  }
+
+  resize() {
+    if (!this.effect) return;
+    const e = this.effect;
+    const size = e.sprite.resolution * this.zoom;
+    const proj = e.projection || { mode: "flat" };
+    const steps = proj.mode === "turntable" ? proj.turntableSteps : 0;
+    const cx = this.scale.width / 2, cy = this.scale.height / 2;
+
+    for (const s of layers) {
+      // Only turntable layers get the X squeeze; flat effects stay square.
+      const kx = steps ? turntableWidthScale(s.currentFrame ?? 0, steps) : 1;
+      s.setPosition(cx, cy);
+      s.setDisplaySize(size * kx, size);
+    }
+
+    if (this.box) {
+      this.box.clear();
+      this.box.lineStyle(1, 0x6d8cff, 0.5);
+      this.box.strokeRect(cx - size / 2, cy - size / 2, size, size);
+    }
+  }
+
+  update(time, delta) {
+    if (!playing || !layers.length) return;
+    frameAccum += delta;
+    const step = 1000 / this.currentFps;
+    const total = this.effect.sprite.frameCount;
+    while (frameAccum >= step) {
+      frameAccum -= step;
+      if (at >= total - 1) {
+        if (loop) at = 0;
+        else { playing = false; $("play").textContent = "Play"; }
+      } else at++;
+      for (const s of layers) s.setFrameAt(at);
+      // The turntable width curve is per-frame, so the sprite has to be
+      // re-sized on every advance or the silhouette never changes.
+      this.resize();
+      $("frame").textContent = `frame ${at + 1} / ${total}`;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * The index lists ids only. effect.json is the single source of truth for
+ * sprite layout, blend modes, notes and known issues, so the viewer never
+ * duplicates that data and cannot drift out of sync with the exporter.
+ * ------------------------------------------------------------------ */
+async function fetchJSON(path) {
+  const res = await fetch(path, { cache: "no-store" });
+  if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
+  return res.json();
+}
+
+// Asset paths are relative to the PAGE, which lives in tools/. So "../vfx/..."
+// resolves to <repo>/vfx/... - correct as long as this file stays in tools/.
+// If you move it, these three paths are the only things to update.
+async function fetchEffects() {
+  const index = await fetchJSON("../vfx/index.json");
+  const ids = index.effects ?? index;
+  const out = [];
+  for (const id of ids) {
+    try {
+      out.push(await fetchJSON(`../vfx/${id}/effect.json`));
+    } catch (err) {
+      console.warn(`skipping ${id}:`, err.message);
+    }
+  }
+  return out;
+}
+
+function renderList(effects, onPick) {
+  const el = $("list");
+  el.innerHTML = "";
+  for (const e of effects) {
+    const d = document.createElement("div");
+    d.className = "fx";
+    d.dataset.id = e.id;
+    d.innerHTML = `<b>${e.name}</b><span>${e.sprite.resolution}px · ${e.sprite.frameCount}f · ${e.layers.length} layers</span>
+                   <span class="tag ${e.status === "wip" ? "wip" : ""}">${e.status}</span>`;
+    d.onclick = () => onPick(e);
+    el.appendChild(d);
+  }
+}
+
+function renderMeta(e) {
+  const issues = (e.knownIssues || []).length
+    ? `<div class="issues">Known issues<ul>${e.knownIssues.map((s) => `<li>${s}</li>`).join("")}</ul></div>` : "";
+  const proj = e.projection || { mode: "flat" };
+  const projText = proj.mode === "flat"
+    ? ""
+    : `<br/>projection <code>${proj.mode}</code>` +
+      (proj.turntableSteps ? ` · <code>${proj.turntableSteps}</code> steps` : "") +
+      (proj.angleCameras ? ` · <code>${proj.angleCameras}</code> angles` : "") +
+      ` · spin <code>${proj.spinAxis ?? "Z"}</code>`;
+  $("meta").innerHTML = `
+    <div><b>${e.name}</b> — ${e.description}</div>
+    <div style="margin-top:6px">
+      sheet <code>${e.sprite.columns}×${e.sprite.rows}</code> ·
+      <code>${e.sprite.resolution}px</code> ·
+      <code>${e.sprite.frameCount}f</code> ·
+      <code>${e.sprite.fps}fps</code> ·
+      anchor <code>${e.anchor.x},${e.anchor.y}</code>${projText}
+    </div>
+    <div style="margin-top:6px">${e.layers.map((l) => `<code>${l.id}</code> (${l.blend}) — ${l.note}`).join("<br/>")}</div>
+    ${issues}`;
+}
+
+async function select(e) {
+  // Destroying the game is the reliable way to tear down the previous scene,
+  // its textures and its sprites. Reusing one Game and swapping scenes leaves
+  // ghost sprites behind across effect switches.
+  if (game) { game.destroy(true); game = null; layers = []; }
+  $("meta").innerHTML = "";
+  $("list").querySelectorAll(".fx").forEach((n) => n.classList.toggle("active", n.dataset.id === e.id));
+  renderMeta(e);
+  at = 0;
+  frameAccum = 0;
+  playing = true;
+  $("play").textContent = "Pause";
+
+  const scene = new Demo(e);
+  current = e;
+  game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: "stage",
+    backgroundColor: $("bg").value,
+    // FIT, not RESIZE. RESIZE sizes the canvas to the PARENT's measured box,
+    // and the stage is a flex child; without min-height:0 on the flex item the
+    // parent reported the full document height (measured 1000x2304 in an 800px
+    // viewport), which pushed the effect off-screen entirely.
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: $("stage").clientWidth || 800,
+      height: $("stage").clientHeight || 600,
+    },
+    scene: [scene],
+    banner: false,
+  });
+
+  // create() runs once the sheets have loaded; everything else is driven by
+  // the scene from there.
+}
+
+// One listener for the page, not one per effect switch. Registering it inside
+// select() accumulated a listener every time an effect was picked.
+window.addEventListener("resize", () => {
+  if (!game) return;
+  const w = $("stage").clientWidth || 800;
+  const h = $("stage").clientHeight || 600;
+  game.scale.resize(w, h);
+  const s = activeScene();
+  if (s) s.resize();
+});
+
+function activeScene() {
+  return game ? game.scene.getScene(current ? `fx:${current.id}` : "") : null;
+}
+
+$("play").onclick = () => { playing = !playing; $("play").textContent = playing ? "Pause" : "Play"; };
+$("loop").onchange = (ev) => { loop = ev.target.checked; };
+$("scale").onchange = () => { const s = activeScene(); if (s) { s.zoom = parseInt($("scale").value, 10); s.resize(); } };
+$("fps").onchange = () => { const s = activeScene(); if (s) s.currentFps = parseFloat($("fps").value); };
+$("bg").onchange = () => { const s = activeScene(); if (s) s.cameras.main.setBackgroundColor($("bg").value); };
+$("debug").onchange = (ev) => {
+  const s = activeScene();
+  if (!s) return;
+  if (ev.target.checked) {
+    if (!s.box) s.box = s.add.graphics().setDepth(100);
+    s.box.setVisible(true);
+  } else if (s.box) {
+    s.box.setVisible(false);
+  }
+  s.resize();
+};
+
+try {
+  const effects = await fetchEffects();
+  renderList(effects, select);
+  if (effects.length) select(effects[0]);
+} catch (err) {
+  document.querySelector("main").innerHTML =
+    `<div class="err">Could not load effect list.\n\n${err.message}\n\n` +
+    `If the sheets are missing, run:\n  python tools/pack_sheets.py</div>`;
+}
+</script>
+</body>
+</html>

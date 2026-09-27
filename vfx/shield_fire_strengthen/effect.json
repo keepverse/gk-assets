@@ -1,0 +1,66 @@
+{
+  "$comment": "Manifest for a VFX sub-program. The viewer tool reads these; Blender scripts write them. Adding a new effect = add a new directory with one of these.",
+
+  "id": "shield_fire_strengthen",
+  "name": "Fire Shield - Strengthen",
+  "description": "A power-up. The barrier inhales (contracts and dims), detonates outward in a bright ring throwing sparks, then settles at a higher sustained intensity than it started. Distinguishable from an impact by starting quiet and getting brighter.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+
+  "sprite": {
+    "$comment": "resolution is the GAMEPLAY cell. Authoring is 512px and pack_sheets downsamples to 128.",
+    "resolution": 128,
+    "frameCount": 30,
+    "fps": 24,
+    "durationMs": 1250,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 5
+  },
+
+  "anchor": {
+    "x": 0.5,
+    "y": 0.5
+  },
+
+  "blend": "additive",
+
+  "layers": [
+    {
+      "id": "core",
+      "sheet": "core.png",
+      "blend": "additive",
+      "note": "Follows the same envelope as the ring."
+    },
+    {
+      "id": "flames",
+      "sheet": "flames.png",
+      "blend": "additive",
+      "note": "14 cards driven by a piecewise envelope: inhale 1.0->0.82 (frames 1-8), burst 0.82->1.30 (9-12), settle to 1.06 (13-30). A fast outward kick on frames 9-14 makes the burst read as an explosion."
+    },
+    {
+      "id": "rim",
+      "sheet": "rim.png",
+      "blend": "additive",
+      "note": "20 beads snapping outward on the burst."
+    },
+    {
+      "id": "sparks",
+      "sheet": "sparks.png",
+      "blend": "additive",
+      "note": "18 particles thrown outward on the burst with staggered delays 9-12."
+    }
+  ],
+
+  "envelope": {
+    "$comment": "Piecewise so each phase tunes independently. Values are radius/1.0 and brightness multipliers.",
+    "inhale": { "frames": [1, 8], "radius": [1.0, 0.82], "brightness": [1.0, 0.45] },
+    "burst":  { "frames": [9, 12], "radius": [0.82, 1.30], "brightness": [0.45, 1.75] },
+    "settle": { "frames": [13, 30], "radius": [1.30, 1.00], "brightness": [1.75, 1.15] }
+  },
+
+  "knownIssues": [
+    "Emission is capped at 1.0 per the rig rule, so brightness above full is expressed by scale and the rim/core rather than by over-driving emission. A consumer wanting a hotter peak would need a second additive pass.",
+    "Does not return to idle - it holds at 1.06x. A separate de-buff or transition would be needed to hand back to shield_fire_idle."
+  ]
+}

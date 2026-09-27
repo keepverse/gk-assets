@@ -1,0 +1,61 @@
+{
+  "$comment": "Manifest for a VFX sub-program. The viewer tool reads these; Blender scripts write them. Adding a new effect = add a new directory with one of these.",
+
+  "id": "shield_fire_rotate",
+  "name": "Fire Shield - Rotate",
+  "description": "Baked Z-axis turntable of the fire shield. Proves 3D-in-2D: a real 3D card ring is rendered with an orthographic camera so the projection has no perspective skew, then the viewer's cosine width curve restores the dome's projected width as it turns.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+
+  "sprite": {
+    "$comment": "resolution is the GAMEPLAY cell. Authoring is 512px and pack_sheets downsamples to 128.",
+    "resolution": 128,
+    "frameCount": 36,
+    "fps": 24,
+    "durationMs": 1500,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 6
+  },
+
+  "projection": {
+    "$comment": "Tells the viewer to apply a per-frame cosine width curve. Without it a 36-frame turntable reads as a wobble because every frame is the same square sprite.",
+    "mode": "turntable",
+    "turntableSteps": 36,
+    "spinAxis": "Z",
+    "camera": "orthographic"
+  },
+
+  "anchor": {
+    "x": 0.5,
+    "y": 0.5
+  },
+
+  "blend": "additive",
+
+  "layers": [
+    {
+      "id": "core",
+      "sheet": "core.png",
+      "blend": "additive",
+      "note": "Stays centred and breathes. It does not rotate."
+    },
+    {
+      "id": "flames",
+      "sheet": "flames.png",
+      "blend": "additive",
+      "note": "16 cards on a cylinder of radius 0.44. Each card has its own material copy so its emission strength can be keyframed by depth - that brightness falloff is the cue that reads as rotation rather than wobble."
+    },
+    {
+      "id": "rim",
+      "sheet": "rim.png",
+      "blend": "additive",
+      "note": "20 beads on the same cylinder, travelling with the ring and scaling with depth."
+    }
+  ],
+
+  "knownIssues": [
+    "The depth cue is a per-frame emission keyframe, not real lighting. It sells rotation in a still frame sequence but the cards do not shade each other.",
+    "Card aspect is fixed per card at build time (sized by its starting depth), so a card that starts at the back and rotates to the front keeps the short height it was built with."
+  ]
+}

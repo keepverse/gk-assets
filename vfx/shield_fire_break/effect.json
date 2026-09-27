@@ -1,0 +1,74 @@
+{
+  "$comment": "Manifest for a VFX sub-program. The viewer tool reads these; Blender scripts write them. Adding a new effect = add a new directory with one of these.",
+
+  "id": "shield_fire_break",
+  "name": "Fire Shield - Break",
+  "description": "The shield fails. A white-hot tear opens at the breach, the barrier is extinguished arc by arc outward from it, the dome contracts and sags, burning shards are blown out and tumble under gravity, and the whole thing gutters out. One-shot; nothing remains by frame 36.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+
+  "sprite": {
+    "$comment": "resolution is the GAMEPLAY cell. Authoring is 512px and pack_sheets downsamples to 128.",
+    "resolution": 128,
+    "frameCount": 36,
+    "fps": 24,
+    "durationMs": 1500,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 6
+  },
+
+  "anchor": {
+    "x": 0.5,
+    "y": 0.5
+  },
+
+  "blend": "additive",
+
+  "layers": [
+    {
+      "id": "core",
+      "sheet": "core.png",
+      "blend": "additive",
+      "note": "Over-charges to frame 4 then gutters out. Capped at 2.4x - higher and it became a pale egg wider than the barrier."
+    },
+    {
+      "id": "flames",
+      "sheet": "flames.png",
+      "blend": "additive",
+      "note": "16 cards. Each dies progressively, nearest the breach first (die_at = 3 + (1-near)*11), while the whole ring contracts 34% and sags. This arc-by-arc extinction is what separates a break from a fade-out."
+    },
+    {
+      "id": "rim",
+      "sheet": "rim.png",
+      "blend": "additive",
+      "note": "20 beads going out on the same schedule as the flames, following the collapsing radius."
+    },
+    {
+      "id": "crack",
+      "sheet": "crack.png",
+      "blend": "additive",
+      "note": "The tear at the breach. Uses the flame shader rather than a radial glow, because a radial mask on a tall card is a smooth ellipse that reads as a floating pill."
+    },
+    {
+      "id": "shards",
+      "sheet": "shards.png",
+      "blend": "additive",
+      "note": "20 tumbling fragments blown from the breach with drag and gravity, staggered delays 5-11."
+    },
+    {
+      "id": "tail",
+      "sheet": "tail.png",
+      "blend": "additive",
+      "note": "22 smouldering cinders that carry the shot to its end. Without this every other layer had finished by frame 19 and 18 of 36 sheet cells were blank."
+    }
+  ],
+
+  "breachAngle": 0.0,
+  "shatterSpan": 2.4,
+
+  "knownIssues": [
+    "The breach angle is baked at +X. Striking from another direction needs a mirrored sheet.",
+    "Cards die by scaling to zero, which reads as shrinking rather than burning out. A real extinguish would also desaturate the card, which the shared flame shader does not do per-card."
+  ]
+}

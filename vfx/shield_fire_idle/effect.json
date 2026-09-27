@@ -1,0 +1,69 @@
+{
+  "$comment": "Manifest for a VFX sub-program. The viewer tool reads these; Blender scripts write them. Adding a new effect = add a new directory with one of these.",
+
+  "id": "shield_fire_idle",
+  "name": "Fire Shield - Idle",
+  "description": "Persistent fire shield aura: a ring of rising flame tongues around the unit, a hot core, bright beads tracing the barrier's edge, and embers drifting upward. Loops seamlessly.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+
+  "sprite": {
+    "$comment": "resolution is the GAMEPLAY cell. Authoring is 512px and pack_sheets downsamples to 128, because flame detail is sub-pixel at 128 and averages to a flat block.",
+    "resolution": 128,
+    "frameCount": 24,
+    "fps": 24,
+    "durationMs": 1000,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 4
+  },
+
+  "anchor": {
+    "$comment": "Normalized pivot within one frame. 0.5,0.5 = centre. The shield is anchored on the unit it protects.",
+    "x": 0.5,
+    "y": 0.5
+  },
+
+  "blend": "additive",
+
+  "layers": [
+    {
+      "id": "core",
+      "sheet": "core.png",
+      "blend": "additive",
+      "note": "Small hot pool behind the flames. Deliberately small (0.26 units) and dim (strength 0.6) - at larger sizes it dominated and read as a pale egg."
+    },
+    {
+      "id": "flames",
+      "sheet": "flames.png",
+      "blend": "additive",
+      "note": "14 upright cards on a ring of radius 0.42. Card height scales with ring depth so the far side is tall and the near side short - that vertical stagger is what reads as a dome rather than a band. Noise mapping scrolls upward for the rise."
+    },
+    {
+      "id": "rim",
+      "sheet": "rim.png",
+      "blend": "additive",
+      "note": "20 beads tracing the barrier edge, following the same depth lift. This is what makes it read as a BARRIER rather than a fire cloud."
+    },
+    {
+      "id": "embers",
+      "sheet": "embers.png",
+      "blend": "additive",
+      "note": "10 embers rising with drag and fade-out."
+    }
+  ],
+
+  "measured": {
+    "$comment": "From tools/test_shield.py over 5 sampled frames.",
+    "saturation_R_minus_B": [0.386, 0.418],
+    "fill_ratio": [0.20, 0.31],
+    "silhouette_raggedness": [0.483, 0.582],
+    "bbox_height_over_width": [0.63, 0.71],
+    "white_fraction_max": 0.064
+  },
+
+  "knownIssues": [
+    "Rim beads read slightly as a chain of separate balls rather than a continuous edge. A continuous rim mesh would be cleaner but costs a separate alpha material.",
+    "Ring silhouette is a dome only because of the depth-lift stagger; it is not true 3D geometry, so rotating the unit would not rotate the shield."
+  ]
+}

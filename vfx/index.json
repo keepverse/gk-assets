@@ -1,0 +1,10 @@
+{
+  "$comment": "Effect index. Lists ids only - the viewer then loads each vfx/<id>/effect.json, so effect.json stays the single source of truth. Regenerate with: python blender/tools/pack_sheets.py",
+  "effects": [
+    "shield_fire_break",
+    "shield_fire_idle",
+    "shield_fire_impact",
+    "shield_fire_rotate",
+    "shield_fire_strengthen"
+  ]
+}

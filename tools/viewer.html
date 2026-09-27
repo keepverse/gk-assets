@@ -50,6 +50,32 @@
   .meta ul { margin: 4px 0 0 16px; padding: 0; }
   .meta li { margin-bottom: 3px; }
   .err { color: #ff8080; padding: 16px; white-space: pre-wrap; }
+
+  /* ---- review mode (tools/review_ui.py) ---- */
+  body.review aside { border-right-color: #3a2f1a; }
+  .fx .rev { margin-top: 5px; font-size: 10px; letter-spacing: .04em; }
+  .rev.pending { color: #b8a06a; }
+  .rev.ok      { color: #6fbf87; }
+  .rev.stale   { color: #e0a23c; }
+  .rev.failed  { color: #e06a6a; }
+
+  #reviewbar { display: none; gap: 8px; align-items: center; flex-wrap: wrap;
+               padding: 10px 16px; background: #1b1710;
+               border-top: 1px solid #3a2f1a; }
+  body.review #reviewbar { display: flex; }
+  #reviewbar label { font-size: 12px; color: #cbbfa6; }
+  #reviewbar input[type=text] { background: #14110c; color: #e6e0d4;
+       border: 1px solid #3a2f1a; border-radius: 5px; padding: 6px 9px; font: inherit;
+       font-size: 12px; min-width: 210px; }
+  #reviewbar input[type=text]:focus { outline: none; border-color: #b08a3e; }
+  #reviewbar .grow { flex: 1; }
+  .btn-ok   { background: #1e3a28; border-color: #3f7a55; color: #a8e0bd; }
+  .btn-ok:hover { background: #26472f; }
+  .btn-no   { background: #3a1e1e; border-color: #7a3f3f; color: #e0a8a8; }
+  .btn-no:hover { background: #472626; }
+  #reviewmsg { font-size: 12px; min-height: 16px; }
+  .msg-ok  { color: #8fd8ab; }
+  .msg-err { color: #f09090; }
 </style>
 </head>
 <body>
@@ -93,6 +119,17 @@
       <span id="frame" style="font-size:12px;color:#7c8496"></span>
     </div>
     <div class="meta" id="meta"></div>
+    <div id="reviewbar">
+      <label for="revwho">Reviewer</label>
+      <input type="text" id="revwho" placeholder="your name" autocomplete="name" />
+      <label for="revnote">Observed</label>
+      <input type="text" id="revnote" placeholder="what you saw, e.g. reads as a barrier on the lawn" />
+      <button class="btn-ok" id="revok">Approve</button>
+      <button class="btn-no" id="revno">Reject</button>
+      <span id="reviewmsg"></span>
+      <span class="grow"></span>
+      <span id="revtarget" style="font-size:12px;color:#cbbfa6"></span>
+    </div>
   </main>
 
 <!--
@@ -134,6 +171,7 @@ const Phaser = (await import("phaser")).default;
 
 const $ = (id) => document.getElementById(id);
 let game = null, current = null, layers = [], frameAccum = 0, playing = true, loop = true, at = 0;
+let allEffects = [];
 
 /* ------------------------------------------------------------------ *
  * Layered sprite playback.
@@ -297,6 +335,86 @@ async function fetchEffects() {
   return out;
 }
 
+/* ------------------------------------------------------------------ *
+ * Review mode. Enabled by tools/review_ui.py, which serves this page and
+ * two extra routes: GET /__review/state and POST /__review/save. Both write
+ * the same vfx/<id>/review.json that tools/review.py reads, so a sign-off
+ * made in the browser is the same artefact the CLI reports.
+ *
+ * The server enforces the two rules this UI also enforces: a sign-off needs
+ * a reviewer and an observation. The buttons stay disabled until both are
+ * filled so the failure is visible before the request, not after.
+ * ------------------------------------------------------------------ */
+const REVIEW_ON = new URLSearchParams(location.search).get("review") === "1";
+let reviewState = new Map();
+
+function reviewBadge(e) {
+  if (!REVIEW_ON) return "";
+  const r = reviewState.get(e.id);
+  if (!r) return "";
+  let cls = "pending", text;
+  if (r.failing) { cls = "failed"; text = "verified FAIL"; }
+  else if (r.stale) { cls = "stale"; text = "stale sign-off"; }
+  else if (r.status === "approved") { cls = "ok"; text = `approved · ${r.by}`; }
+  else if (r.status === "rejected") { cls = "failed"; text = `rejected · ${r.by}`; }
+  else { cls = "pending"; text = "awaiting review"; }
+  return `<span class="rev ${cls}">${text}</span>`;
+}
+
+async function loadReviewState() {
+  if (!REVIEW_ON) return;
+  try {
+    const res = await fetch("/__review/state", { cache: "no-store" });
+    if (!res.ok) return;
+    const rows = await res.json();
+    reviewState = new Map(rows.map((r) => [r.id, r]));
+  } catch (e) {
+    console.warn("review state unavailable", e);
+  }
+}
+
+function updateReviewBar() {
+  if (!REVIEW_ON) return;
+  const who = $("revwho").value.trim();
+  const note = $("revnote").value.trim();
+  const ready = who.length > 0 && note.length > 0;
+  $("revok").disabled = !ready;
+  $("revno").disabled = !ready;
+  $("revtarget").textContent = current ? `reviewing: ${current.id}` : "";
+}
+
+async function saveReview(status) {
+  if (!REVIEW_ON || !current) return;
+  const who = $("revwho").value.trim();
+  const note = $("revnote").value.trim();
+  const msg = $("reviewmsg");
+  if (!who || !note) {
+    msg.className = "msg-err";
+    msg.textContent = "needs a reviewer name and what you observed";
+    return;
+  }
+  try {
+    const res = await fetch("/__review/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: current.id, status, by: who, note }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      msg.className = "msg-ok";
+      msg.textContent = `${current.id} ${status}`;
+      await loadReviewState();
+      renderList(allEffects, select);
+    } else {
+      msg.className = "msg-err";
+      msg.textContent = data.error || "save failed";
+    }
+  } catch (e) {
+    msg.className = "msg-err";
+    msg.textContent = String(e);
+  }
+}
+
 function renderList(effects, onPick) {
   const el = $("list");
   el.innerHTML = "";
@@ -305,7 +423,8 @@ function renderList(effects, onPick) {
     d.className = "fx";
     d.dataset.id = e.id;
     d.innerHTML = `<b>${e.name}</b><span>${e.sprite.resolution}px · ${e.sprite.frameCount}f · ${e.layers.length} layers</span>
-                   <span class="tag ${e.status === "wip" ? "wip" : ""}">${e.status}</span>`;
+                   <span class="tag ${e.status === "wip" ? "wip" : ""}">${e.status}</span>
+                   ${reviewBadge(e)}`;
     d.onclick = () => onPick(e);
     el.appendChild(d);
   }
@@ -405,8 +524,21 @@ $("debug").onchange = (ev) => {
 
 try {
   const effects = await fetchEffects();
+  allEffects = effects;                 // kept so review can re-render the list
+  if (REVIEW_ON) {
+    document.body.classList.add("review");
+    await loadReviewState();
+  }
   renderList(effects, select);
   if (effects.length) select(effects[0]);
+  if (REVIEW_ON) {
+    for (const id of ["revwho", "revnote"]) {
+      $(id).addEventListener("input", updateReviewBar);
+    }
+    $("revok").onclick = () => saveReview("approved");
+    $("revno").onclick = () => saveReview("rejected");
+    updateReviewBar();
+  }
 } catch (err) {
   document.querySelector("main").innerHTML =
     `<div class="err">Could not load effect list.\n\n${err.message}\n\n` +

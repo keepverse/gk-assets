@@ -69,7 +69,8 @@ speculatively — put a working tool there first.
 | `build.py` | build → pack → verify, in that order. |
 | `pack_sheets.py` | sequences → sheets; `--write-index` refreshes the sidebar. |
 | `verify_all.py` | Assert every sub-program from its committed sheets. |
-| `review.py` | Record/clear the **human** visual sign-off. |
+| `review_ui.py` | **One-command review**: serves the viewer with a sign-off bar. |
+| `review.py` | Record/clear the human sign-off from the CLI. |
 | `test_flame_card.py` | One card in isolation — fastest shader iteration. |
 | `test_shield.py` | One composite against the visual gates. |
 | `test_viewer.py` | Boot the browser preview and prove an effect renders. |
@@ -86,19 +87,40 @@ speculatively — put a working tool there first.
 **Human-reviewed** — someone opened it in the viewer, on the lawn background, at
 gameplay scale, and accepted it. Recorded in `vfx/<id>/review.json`.
 
+### One command to review
+
+```bash
+python tools/review_ui.py
+```
+
+Serves the viewer with a review overlay and opens your browser. Each
+sub-program carries a badge — `awaiting review`, `approved · <name>`,
+`stale sign-off`, or `verified FAIL`. Pick one, type your name and what you
+saw, press Approve or Reject.
+
+Useful flags: `--port 8099`, `--no-open`, and `--list` to just print the
+state without starting a server.
+
+A sign-off needs **both** a reviewer and an observation. The Approve and Reject
+buttons stay disabled until both are filled, and the server rejects the request
+with 400 if either is missing — so an agent filling this in through the browser
+cannot produce a bare approval either.
+
+`review.py` remains the CLI equivalent, and both write the same
+`vfx/<id>/review.json`:
+
 ```bash
 python tools/review.py --list
 python tools/review.py shield_ice_idle --approve --by "your name" --note "what you saw"
 ```
 
-`review.py` refuses to record without both `--by` and `--note`, so a sign-off is
-always attributable and always carries an observation. **Agents must not run
-`--approve`** — an agent can prove a sprite is the right shape and colour, but
-cannot tell you whether it reads as a shield in motion. That judgement stays
-human.
+**Agents must not approve.** An agent can prove a sprite is the right shape and
+colour, but cannot tell you whether it reads as a shield in motion. That
+judgement stays human.
 
-The recorded `machine` field says whether `verify_all` passed at review time, and
-reports `stale` if the sheets changed since.
+A sign-off is **invalidated by a rebuild**: `review_ui.py --list` and
+`review.py --list` both report a sub-program whose sheets changed after review as
+`stale sign-off` and exit non-zero. Re-review, then re-record.
 
 ## Registered sub-programs
 

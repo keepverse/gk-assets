@@ -138,11 +138,40 @@ authored once and exported into per-effect scenes.
 
 ## Verification
 
-`verify_all.py` checks each sub-program from the **rendered output**, not the
-build code: manifest/grid agreement, that no layer's frames collapsed to
-duplicates, that composites meet saturation / fill / silhouette-raggedness /
-aspect gates at frames where the effect is intact, and that looping effects
-have no empty frame and close their loop.
+`verify_all.py` checks each sub-program from the **rendered sheets**, not the
+build code. Sheets are the committed deliverable, so a fresh clone can be
+verified without running a build first — which is deliberate: a checker that
+only works immediately after a build is not much of a check.
+
+It asserts: manifest/grid agreement, that no layer's frames collapsed to
+duplicates, that composited frames meet saturation / fill / silhouette-raggedness
+/ aspect gates, and that looping effects have no empty frame and close their
+loop.
+
+Compositing the layers during verification mirrors what the game does at
+runtime, so it tests the shipped artefact rather than a full-resolution preview.
+
+**The gates are calibrated at sheet resolution, not preview resolution.** The
+4× downsample that produces a sheet genuinely lowers measured saturation, so a
+threshold tuned on a 512px preview flags correct fire as washed out. Measured
+across all five shipped effects:
+
+| Gate | Shipped range | Threshold | Catches |
+|---|---|---|---|
+| saturation (α-weighted R−B) | 0.15 – 0.36 | **< 0.12 fails** | desaturated / white-clipped |
+| white fraction | 0 – 0.013 | **> 0.10 fails** | blown-out core |
+| fill ratio | 0.011 – 0.365 | **> 0.62 fails** (lower is advisory) | solid rectangle (~1.0) |
+| silhouette raggedness | 0.46 – 0.94 | **< 0.18 fails** | smooth disc (~0.02) |
+| bbox height / width | 0.44 – 0.90 | **< 0.40 fails** | flat band, not a dome |
+
+Two things worth knowing if you retune these:
+
+- **Saturation is α-weighted, not α-masked.** Masking averages every pixel
+  above a 0.05 floor; a sparse effect is mostly faint pixels whose dark
+  accumulated colour drags the mean down. That reported a correct sheet as
+  0.12 when the same frame measured 0.45 in the preview.
+- **Fill's lower bound is advisory.** A thin effect legitimately covers little
+  of its cell; only a near-solid frame is a defect, whichever way it fails.
 
 It samples at frames where each effect is *whole*. A one-shot's tail is
 legitimately sparse — `shield_fire_break` at frame 19 is a scatter of falling

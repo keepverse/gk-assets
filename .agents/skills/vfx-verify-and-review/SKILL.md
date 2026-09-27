@@ -35,15 +35,40 @@ against explicit gates.
 
 | Message | Meaning | Fix |
 |---|---|---|
-| `no preview frames` | The build did not run, or ran from the wrong cwd. | Run the build script from the repo root. |
+| `no sheets directory` | Never built, or sheets are not committed. | `python tools/build.py` |
 | `N live tiles but only M distinct` | Timeline did not advance. | Missing `scene.frame_set(f)`. |
 | `repetitive layer` (warn only) | A slowly-breathing layer is legitimately repetitive. | Ignore. |
-| `washed out, sat 0.21` | AgX, or emission > 1.0 clipping. | Standard transform, clamp strength. |
-| `fill 0.93` | Solid block, not fire. | Noise Fac is saturating the gamma ramp. |
+| `washed out, sat 0.08` | AgX, or emission > 1.0 clipping. | Standard transform, clamp strength. |
+| `too white, 0.31` | Clipped core. | Emission strength above 1.0. |
+| `too solid, fill 0.93` | Solid block, not fire. | Noise Fac is saturating the gamma ramp. |
+| `sparse, fill 0.018` (warn only) | A thin effect legitimately covers little of its cell. | Ignore unless the effect should be bigger. |
 | `silhouette too smooth` | Reads as a disc. | Add a hard threshold on the noise. |
 | `too flat, h/w 0.31` | Horizontal band, not a dome. | Card width exceeds ring circumference / count. |
 | `looping effect has an empty frame` | A visible hole in the cycle. | Extend the layer's lifetime. |
-| `loop seam delta 0.4` | The cycle will visibly jump. | Make frame N match frame 1. |
+| `loop seam: mean alpha delta 0.4` | The cycle will visibly jump. | Make frame N match frame 1. |
+
+## The gates are calibrated at sheet resolution
+
+`verify_all.py` composites from the 128px **sheets**, not the 512px previews.
+The 4× downsample genuinely lowers measured saturation, so do not retune these
+against a preview — a preview-tuned threshold flags correct fire as washed out.
+
+| Gate | Shipped range | Fails when |
+|---|---|---|
+| saturation (α-weighted R−B) | 0.15 – 0.36 | < 0.12 |
+| white fraction | 0 – 0.013 | > 0.10 |
+| fill ratio | 0.011 – 0.365 | > 0.62 (lower is advisory) |
+| silhouette raggedness | 0.46 – 0.94 | < 0.18 |
+| bbox height / width | 0.44 – 0.90 | < 0.40 |
+
+Saturation is **α-weighted, not α-masked**. Masking averages every pixel above
+a 0.05 floor, and a sparse effect is mostly faint pixels whose dark accumulated
+colour drags the mean down — that once reported a correct sheet as 0.12 when
+the same frame measured 0.45 in the preview.
+
+If you change a shader and a gate starts failing, measure the new distribution
+across every effect before moving the threshold. A gate that has to be relaxed
+to let a regression through is worse than a failing build.
 
 ## Reviewing visually
 

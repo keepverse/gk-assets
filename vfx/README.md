@@ -228,6 +228,48 @@ Each shipped a visibly wrong render before measurement caught it.
   opens the scene with the link unresolved and renders nothing. `doctor.py`
   should be extended to check links before a linked rig is trusted.
 
+## Adding a sub-program
+
+1. `vfx/<id>/effect.json` — copy an existing one; it is the only place layout,
+   blend mode, layer notes and known issues live.
+2. `tools/<name>.py` — `import shield_rig`, compose layers. Per-card materials
+   when a layer animates independently.
+3. Register `(id, script stem)` in `EFFECTS` in `tools/build.py`.
+4. **Add the id to `EFFECT_MATERIAL` in `verify_all.py`.** Skipping this fails
+   the build by design (see below).
+5. `python tools/build.py <id>`
+6. `vfx/<id>/README.md` — layers, frame timing, measured values, known issues.
+
+`pack_sheets.py --write-index` adds it to the viewer sidebar.
+
+### Three ways this goes wrong, and why the tools fail loudly
+
+These were found by simulating a new agent following this document, not by
+reading it. Each one had passed a "clean" verification before the guard was
+added.
+
+**A new effect is invisible to verification.** `verify_all` used to iterate
+`vfx/index.json` only, so an effect that had not been packed yet was never
+checked and the run reported PASS. It now discovers sub-programs from the
+filesystem and fails on any effect with an `effect.json` that the index does
+not list, telling you to run `pack_sheets.py --write-index`.
+
+**An unregistered material gets the wrong gates.** A new effect that is not in
+`EFFECT_MATERIAL` silently inherits the fire thresholds. For a cool or
+green-tinted effect that is exactly backwards, and the symptom is a confusing
+"washed out" failure on correct output — the same trap that made the ice shield
+look non-conforming. An unregistered material is now a hard failure naming the
+two tables to edit.
+
+**A green build can still be a garbage build.** `build.py` requires the build
+script's own completion line, not just a zero exit code, because Blender exits 0
+even when it cannot open a `--python` script.
+
+Together these mean: if `python tools/build.py` says PASS, the sub-program was
+built, is registered, has an index entry, has a declared material, and met the
+gates for that material. What it still cannot tell you is whether the effect
+looks right — that is what the human review gate is for.
+
 ## Not a sub-program
 
 Authoring scenes, workbenches and lookdev files are legitimate in the repo and

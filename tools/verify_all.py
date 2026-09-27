@@ -16,11 +16,16 @@ import json
 import os
 import sys
 
+import pathlib
+
 import bpy
 import numpy as np
 
-BLENDER_DIR = os.path.dirname(os.path.abspath(__file__))
-VFX_DIR = os.path.join(os.path.dirname(BLENDER_DIR), "vfx")
+TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+# pathlib, not str: discover_effects() needs iterdir()/is_file(). It was a plain
+# string for as long as every use was os.path.join(), which hid the mismatch
+# until something actually called a Path method on it.
+VFX_DIR = pathlib.Path(TOOLS_DIR).parent / "vfx"
 
 LOOPING = {"shield_fire_idle", "shield_fire_rotate", "shield_ice_idle"}
 
@@ -264,7 +269,14 @@ def check(effect_id):
     fracs = SAMPLE_AT.get(effect_id, (0.25, 0.5, 0.75))
     g, mat_name = gates_for(effect_id)
     if mat_name.startswith("default"):
-        warns.append("no material registered for this effect; using default gates")
+        # HARD FAIL, not a warning. An effect with no registered material silently
+        # gets the fire gates, and a cool-coloured effect then reads as "washed
+        # out" - or worse, a wrong-coloured one passes. Forcing the author to
+        # declare the material is the whole point of the table.
+        fails.append(
+            "no material registered - add %r to EFFECT_MATERIAL in "
+            "verify_all.py and a MATERIAL_GATES entry if it needs different "
+            "colour/density thresholds" % effect_id)
     for fr in fracs:
         fi = int(need * fr)
         if fi >= need:
@@ -341,17 +353,41 @@ def write_cache(eid, fails):
         pass          # a missing cache only degrades review.py's context line
 
 
-def main():
-    index_path = os.path.join(VFX_DIR, "index.json")
-    with open(index_path, encoding="utf-8") as fh:
-        ids = json.load(fh)["effects"]
+def discover_effects():
+    """Every sub-program on disk, plus the ids the index claims.
 
-    print("verifying %d effects\n" % len(ids))
+    Returns (ids, unregistered) where `unregistered` is a sub-program
+    directory that is not in vfx/index.json. Verifying only the index meant a
+    newly added effect was invisible to verification until someone remembered to
+    run pack_sheets, so a broken new effect reported a clean run.
+    """
+    on_disk = sorted(d.name for d in VFX_DIR.iterdir()
+                     if d.is_dir() and (d / "effect.json").is_file())
+    index_path = os.path.join(VFX_DIR, "index.json")
+    listed = []
+    if os.path.isfile(index_path):
+        with open(index_path, encoding="utf-8") as fh:
+            listed = json.load(fh)["effects"]
+    unregistered = [e for e in on_disk if e not in listed]
+    missing_dir = [e for e in listed if not (VFX_DIR / e).is_dir()]
+    return (on_disk + [e for e in missing_dir if e not in on_disk],
+            unregistered, missing_dir)
+
+
+def main():
+    ids, unregistered, missing_dir = discover_effects()
+
+    print("verifying %d sub-program(s)\n" % len(ids))
     total_fail = 0
+
+    for eid in missing_dir:
+        print("%s" % eid)
+        print("   FAIL: listed in vfx/index.json but no directory on disk")
+        total_fail += 1
+
     for eid in ids:
-        # Every registered sub-program is verified, whatever its material.
-        # An earlier version filtered to shield_fire only, which would have
-        # silently skipped the ice shield and reported a clean run.
+        # Every sub-program is verified, whatever its material and whether or
+        # not the index knows about it.
         fails, warns = check(eid)
         print("%s" % eid)
         for w in warns:
@@ -361,6 +397,12 @@ def main():
         print("   %s" % ("OK" if not fails else "%d problem(s)" % len(fails)))
         total_fail += len(fails)
         write_cache(eid, fails)
+
+    for eid in unregistered:
+        print("%s" % eid)
+        print("   FAIL: has an effect.json but is not in vfx/index.json - run "
+              "`python tools/pack_sheets.py --write-index`")
+        total_fail += 1
 
     print("\nRESULT:", "PASS" if total_fail == 0 else "FAIL (%d)" % total_fail)
     return 0 if total_fail == 0 else 1

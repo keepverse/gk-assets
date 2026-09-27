@@ -77,9 +77,10 @@ would misstate who reviewed it. Report state with
 **Gating is per material, not global.** Saturation is mean(R−B), a *warmth*
 axis: fire measures +0.15 to +0.36, frost glass −0.16. One global floor fails
 correct ice. Shape gates (raggedness, h/w, fill ceiling) are material-independent
-and shared. Adding an effect in a new material means measuring its distribution
-and adding a `MATERIAL_GATES` entry plus an `EFFECT_MATERIAL` key — never
-widening the default, which lets every other effect regress silently.
+and shared. **A new sub-program with no `EFFECT_MATERIAL` entry fails
+verification on purpose** — the failure names the two tables to edit. Do not
+work around it by widening `DEFAULT_GATES`; that lets every other effect
+regress silently.
 
 **Do not hand-tune parameters into a build script without a reason.** If a
 number is magic, say why in a comment. If two effects need the same rig change,

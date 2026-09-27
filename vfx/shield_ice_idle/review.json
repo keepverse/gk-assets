@@ -1,9 +1,0 @@
-{
-  "id": "shield_ice_idle",
-  "status": "approved",
-  "reviewedBy": "owner",
-  "reviewedAt": "2026-09-27T08:51:41+00:00",
-  "note": "migrated from the game monorepo; effect confirmed working by the owner",
-  "machine": "pass",
-  "updatedAt": "2026-09-27T08:51:41+00:00"
-}

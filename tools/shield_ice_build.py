@@ -22,9 +22,28 @@ import bpy
 from mathutils import Vector
 
 
-ROOT = Path(__file__).resolve().parents[2]
-ASSET_DIR = ROOT / "blender" / "assets" / "vfx" / "ice_shield"
-EFFECT_DIR = ROOT / "blender" / "vfx" / "shield_ice_idle"
+# Repo root, derived from this file's own location rather than assumed.
+#
+# The script was migrated from a monorepo where it lived at
+# <repo>/blender/tools/ and used parents[2] plus a hardcoded "blender"
+# segment. In gk-assets it lives at <repo>/tools/, so parents[2] overshoots to
+# D:/Works/source/Keepverse and every write landed outside the repository in a
+# directory that does not exist.
+#
+# Derive it by walking up until we find the marker that identifies the repo
+# root, so a future move of tools/ does not silently break every path again.
+def _find_root() -> Path:
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "vfx").is_dir() and (parent / "tools").is_dir():
+            return parent
+    # Fall back to the documented layout rather than guessing.
+    return here.parent.parent
+
+
+ROOT = _find_root()
+ASSET_DIR = ROOT / "assets" / "vfx" / "ice_shield"
+EFFECT_DIR = ROOT / "vfx" / "shield_ice_idle"
 V2_ASSET_DIR = ASSET_DIR / "v2"
 V2_EFFECT_DIR = EFFECT_DIR / "v2"
 FRAME_COUNT = 24
@@ -753,6 +772,19 @@ def main(variant: str = "current") -> None:
     save_single_object_asset("ice_shield_rim.blend", build_rim, asset_dir)
     save_single_object_asset("ice_crystal_shard.blend", build_shard, asset_dir)
     build_idle_scene(asset_dir, effect_dir)
+
+    # Completion line. tools/build.py treats a build as successful only if the
+    # script prints one, because Blender exits 0 even when it cannot open or
+    # finish a --python script. Without this the ice build was silently
+    # indistinguishable from success.
+    print(
+        "shield_ice_idle: {res} px/unit, {frames} frames, kit={asset}, effect={effect}".format(
+            res=SPRITE_SIZE,
+            frames=FRAME_COUNT,
+            asset=asset_dir.relative_to(ROOT).as_posix(),
+            effect=effect_dir.relative_to(ROOT).as_posix(),
+        )
+    )
 
 
 if __name__ == "__main__":

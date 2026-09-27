@@ -58,10 +58,12 @@ MATERIAL_GATES = {
     "fire": {},                       # use DEFAULT_GATES as calibrated
     "ice": {
         "$comment": ("Frost glass is cool and translucent by design. Measured on "
-                     "shipped sheets: sat -0.16, white 0.17, fill 0.39, ragged "
-                     "0.41, h/w 1.06. mean(R-B) is a WARMTH axis so a cool "
-                     "material is legitimately negative."),
-        "minSat": -0.30,
+                     "the REBUILT sheets: sat -0.405, white 0.000, fill 0.42, "
+                     "ragged 0.40, h/w 1.11. mean(R-B) is a WARMTH axis so a "
+                     "cool material is legitimately and strongly negative. The "
+                     "earlier -0.16 came from stale sheets that the builder in "
+                     "the repo could not reproduce - see the ice fix report."),
+        "minSat": -0.50,
         "maxWhite": 0.35,
     },
 }

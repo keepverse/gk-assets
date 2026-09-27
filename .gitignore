@@ -231,6 +231,10 @@ vfx/*/sequences/
 # Flat composite frames: for human review only, rewritten on every build.
 vfx/*/preview/
 
+# Opaque beauty stills from the lookdev camera. Review-only, and large
+# (the ice lookdev render alone is ~1.1 MB).
+vfx/*/lookdev/
+
 # Scratch output from the test tools.
 tmp/
 tools/.smoke.png

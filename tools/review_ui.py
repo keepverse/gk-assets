@@ -60,9 +60,12 @@ def review_payload() -> list[dict]:
                 rec = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 rec = {}
-        machine = (review_mod.machine_result(eid)
-                   if rec.get("status") == "approved"
-                   else rec.get("machine", "not verified yet"))
+        # ALWAYS recompute, for every sub-program regardless of review status.
+        # An earlier version only recomputed for approved ones and fell back to
+        # the snapshot stored in review.json otherwise - so an unreviewed effect
+        # reported "not verified yet" in the browser while the CLI correctly
+        # reported pass. The two tools must never disagree.
+        machine = review_mod.machine_result(eid)
         out.append({
             "id": eid,
             "status": rec.get("status", "unreviewed"),
@@ -108,14 +111,40 @@ def main(argv: list[str]) -> int:
 
     handler = _build_handler(phaser)
 
+    # Refuse to start on a port something else already owns. Binding would
+    # either fail obscurely or, worse, appear to work while another service
+    # answers - which is exactly what happened on 8082/8083, where unrelated
+    # Windows services returned 404 for every route and the review UI silently
+    # listed zero sub-programs.
+    import socket as _socket
+    probe = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    probe.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+    try:
+        probe.bind((args.host, args.port))
+    except OSError as exc:
+        probe.close()
+        print("port %d on %s is already in use: %s" % (args.port, args.host, exc))
+        print("pick another with --port <n>.")
+        return 1
+    probe.close()
+
     socketserver.TCPServer.allow_reuse_address = True
     url = "http://%s:%d/tools/viewer.html?review=1" % (args.host, args.port)
     with socketserver.TCPServer((args.host, args.port), handler) as httpd:
-        pending = len(review_payload())
+        rows = review_payload()
+        done = sum(1 for r in rows
+                   if r["status"] != "rejected" and r["machine"].startswith("pass"))
+        signed = sum(1 for r in rows if r["status"] == "approved" and not r["stale"])
         print("VFX review: %s" % url)
         if phaser:
             print("  phaser : %s" % phaser)
-        print("  %d sub-program(s) awaiting human review" % pending)
+        # Count complete work, not "pending review". A sign-off is optional
+        # extra assurance; nothing is blocked without one, so reporting a
+        # backlog of finished assets would be misleading.
+        print("  %d sub-program(s) built and verified" % done)
+        if signed < done:
+            print("  %d also carry a human sign-off - optional, add one here if"
+                  " you want the extra assurance" % signed)
         print("Ctrl+C to stop.")
         if not args.no_open:
             # Open after the socket is listening, or the page races the server.

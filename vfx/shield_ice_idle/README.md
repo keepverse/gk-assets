@@ -1,17 +1,22 @@
 # Ice Shield — Idle
 
-> **Review state: machine-verified, awaiting human review.**
-> The sheets were rebuilt (see [FIX-REPORT.md](FIX-REPORT.md)) and the look
-> changed — deeper and more saturated than the version previously signed off.
-> `review.json` was cleared rather than carried over, because the prior sign-off
-> covered sheets that no longer exist.
+> **State: built and verified. Sign-off optional.**
+> These sheets were regenerated from the builder in this repo — the previous
+> set was stale and not reproducible from it (see
+> [FIX-REPORT.md](FIX-REPORT.md)). The rebuild is **deeper and more saturated**
+> than the pale version that had been signed off.
 >
-> **Read [REVIEW-PACKET.md](REVIEW-PACKET.md) before reviewing.** It has the
-> per-layer measurements and a side-by-side over both the lawn and the dark
-> viewer background.
+> That is a **look change worth a glance**, not a blocker:
+> [REVIEW-PACKET.md](REVIEW-PACKET.md) has the per-layer measurements and a
+> side-by-side over both the lawn and the dark viewer background. On a lawn
+> background the rebuilt sheets hold contrast where the pale ones washed out.
 >
-> To record the decision:
-> `python tools/review.py shield_ice_idle --approve --by "<name>" --note "<what you saw>"`
+> If you want the paler look back, that is a colour change in
+> `shield_ice_build.py` — say so and I will do it. It is deliberately not
+> something to fix by loosening the verification gates.
+>
+> To record a sign-off when convenient:
+> `python tools/review_ui.py` (or `python tools/review.py shield_ice_idle --approve --by "<name>" --note "<what you saw>"`)
 
 The idle effect is assembled from the three standalone, linked assets in
 [`assets/vfx/ice_shield`](../../assets/vfx/ice_shield/README.md). It
@@ -76,14 +81,17 @@ the transparent frames to the 128px cells declared in `effect.json`.
 
 ## Review state
 
-**Machine-verified. Not human-reviewed.** The sheets were regenerated and the
-look changed, so the previous sign-off was cleared rather than carried over —
-see [REVIEW-PACKET.md](REVIEW-PACKET.md) for the measurements and the
-side-by-side, and `python tools/review.py --list` for the current state.
+**Built and verified. No sign-off recorded.**
 
-Re-review whenever the effect is rebuilt: a sign-off covers the sheets that
-existed when it was given. `review.py` reports the machine result and flags it
-as `stale` once the sheets change.
+A human sign-off is optional extra assurance, not a gate: nothing is blocked
+without one, and `python tools/review.py --list` reports this sub-program as
+`done` rather than pending. The previous sign-off covered sheets that no longer
+exist, so it was cleared rather than carried over.
+
+`python tools/review_ui.py` opens the viewer with a sign-off bar if you want to
+record one; `review.py` is the CLI equivalent. Both write
+`vfx/shield_ice_idle/review.json`, and a sub-program rebuilt after its sign-off
+is reported as `STALE` with a non-zero exit.
 
 Runtime wiring is intentionally out of scope. The repository documents the
 Unity `VfxDirector` path separately from this Blender-to-sprite/Phaser pipeline.

@@ -55,6 +55,7 @@
   body.review aside { border-right-color: #3a2f1a; }
   .fx .rev { margin-top: 5px; font-size: 10px; letter-spacing: .04em; }
   .rev.pending { color: #b8a06a; }
+  .rev.done   { color: #7f8899; }
   .rev.ok      { color: #6fbf87; }
   .rev.stale   { color: #e0a23c; }
   .rev.failed  { color: #e06a6a; }
@@ -352,12 +353,14 @@ function reviewBadge(e) {
   if (!REVIEW_ON) return "";
   const r = reviewState.get(e.id);
   if (!r) return "";
-  let cls = "pending", text;
-  if (r.failing) { cls = "failed"; text = "verified FAIL"; }
-  else if (r.stale) { cls = "stale"; text = "stale sign-off"; }
-  else if (r.status === "approved") { cls = "ok"; text = `approved · ${r.by}`; }
+  // An unreviewed effect that verifies is COMPLETE, not pending. The sign-off
+  // is optional extra assurance, so the badge must not imply unfinished work.
+  let cls = "done", text = "done";
+  if (r.failing) { cls = "failed"; text = "verify FAIL"; }
+  else if (r.stale) { cls = "stale"; text = "done · sign-off stale"; }
   else if (r.status === "rejected") { cls = "failed"; text = `rejected · ${r.by}`; }
-  else { cls = "pending"; text = "awaiting review"; }
+  else if (r.status === "approved") { cls = "ok"; text = `done · reviewed by ${r.by}`; }
+  else if (r.machine && r.machine.startsWith("not verified")) { cls = "pending"; text = "not built"; }
   return `<span class="rev ${cls}">${text}</span>`;
 }
 

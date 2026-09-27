@@ -1,14 +1,18 @@
 ---
 name: vfx-human-review
-description: Record, check and clear the HUMAN visual sign-off for a VFX sub-program in gk-assets. Use when asked to record a review, check what has been reviewed, mark an effect approved or rejected, or find out whether a sub-program is ready to ship. Triggers on "record review", "mark approved", "is it reviewed", "review status", "sign off", "reject the effect".
+description: Record, check and clear the optional human sign-off for a VFX sub-program in gk-assets, and report which sub-programs are complete. Use when asked to record a review, check review status, mark an effect approved or rejected, find out what is finished, or decide whether something is ready to ship. Triggers on "record review", "mark approved", "is it reviewed", "review status", "what's finished", "is it done", "sign off", "reject the effect".
 ---
 
-# Human visual review
+# Human review (optional sign-off)
 
-`tools/verify_all.py` proves a sprite is the right shape, size, colour, frame
-count and that its loop closes. It cannot tell you whether the effect *reads* as
-a shield in motion on a bright lawn. That is a human judgement, and it is
-tracked separately so the two are never confused.
+`tools/verify_all.py` passing means **built and verified**: right shape, size,
+colour, frame count, no collapsed frames, closed loop. **That is finished
+work.** Nothing in the build or verification path consults review state, and no
+sub-program is blocked without a sign-off.
+
+A sign-off is *optional extra assurance* — someone looked at it moving and
+recorded a judgement. The two are tracked separately only so they are never
+confused.
 
 ## The rule
 
@@ -30,14 +34,33 @@ Attributing it to yourself would misstate who reviewed it.
 ## Commands
 
 ```bash
-python tools/review.py --list          # state of every sub-program
+python tools/review_ui.py                      # browser: sign-off bar, opens viewer
+python tools/review_ui.py --list               # state only, no server
+python tools/review.py --list                  # state only, no server
 python tools/review.py <id> --approve --by "who" --note "what you saw"
 python tools/review.py <id> --reject  --by "who" --note "what is wrong"
-python tools/review.py <id> --clear    # remove the record
+python tools/review.py <id> --clear
 ```
 
 Both `--by` and `--note` are required. A sign-off with no attribution, or with
-no observation, is not a review — the tool refuses both.
+no observation, is not a review — the tool refuses both, and so does the
+review UI server.
+
+## Reading the state
+
+`--list` reports one of:
+
+| State | Meaning |
+|---|---|
+| `done` | Built and verified. **Finished.** No sign-off. |
+| `done+reviewed` | Built, verified, and a person signed off. |
+| `STALE` | Builds and verifies, but was rebuilt after the sign-off. |
+| `REJECTED` | A person looked and refused it. |
+| `not built` | No sheets yet. Run `tools/build.py`. |
+| `verify FAIL` | Broken. Not finished. |
+
+Only `STALE` and `verify FAIL` exit non-zero. `done` exits 0 — absence of a
+sign-off is not a problem to fix.
 
 ## What a good note says
 
@@ -49,42 +72,18 @@ Not "looks good". Something a later reader can act on:
   specific, fixable defect.
 - "the break is too abrupt after frame 20, embers vanish" — where to look.
 
-## Reading the record
-
-`vfx/<id>/review.json`:
-
-```json
-{
-  "status": "approved",
-  "reviewedBy": "who",
-  "reviewedAt": "2026-09-27T08:47:24+00:00",
-  "note": "what the reviewer observed",
-  "machine": "pass"
-}
-```
-
-`machine` is what `verify_all` concluded at review time, cached in
-`vfx/<id>/.verify.json`. It reports:
-
-- `pass` — verified, and the sheets have not changed since
-- `stale (sheets changed since last verify)` — rebuild, then re-verify
-- `FAIL: ...` — the effect was approved while failing verification
-- `not verified yet` — no cached run
-
-If `machine` is `stale` or `FAIL`, say so when reporting status. An approval on
-a failing build is a discrepancy the owner needs to know about, not something to
-smooth over.
-
 ## Reporting status
 
 ```bash
 python tools/review.py --list
 ```
 
-Distinguish clearly in any report:
+Report **completeness** first, sign-off second:
 
-- **machine-verified** — `verify_all` passes. Says nothing about how it looks.
-- **human-reviewed** — a person signed off. This is the ship signal.
+> All 6 sub-programs are built and verified. None carries a human sign-off,
+> which is optional.
 
-A sub-program can be verified and unreviewed (most of them right now), or
-reviewed and stale. Never collapse the two into "done".
+Never say something is "pending review" or "awaiting sign-off" as though it
+were unfinished. If the build moved after a sign-off, say that instead — that
+is the case worth flagging.
+

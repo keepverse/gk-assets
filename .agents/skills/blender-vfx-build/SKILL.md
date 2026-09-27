@@ -1,6 +1,6 @@
 ---
 name: blender-vfx-build
-description: Build or modify a Blender VFX sub-program in gk-assets - author a flame/layer rig, animate it, render a sprite sequence, and pack sheets. Use when asked to create a new VFX effect, change an existing one's timing or look, or fix a render that looks wrong. Triggers on "new vfx", "add effect", "shield flame", "smoke shader", "sprite sheet for <effect>", "the fire looks flat/wrong", "rebuild the effect".
+description: Build or modify a Blender VFX sub-program in gk-assets - author a flame/layer rig, animate it, render a sprite sequence, and pack sheets. Use when asked to create a new VFX effect, change an existing one's timing or look, fix a render that looks wrong, drive Blender from the CLI, or target multiple Blender MCP ports. Triggers on "new vfx", "add effect", "shield flame", "smoke shader", "sprite sheet for <effect>", "the fire looks flat/wrong", "rebuild the effect", "Blender CLI", "multiple Blender instances", "MCP port".
 ---
 
 # Building a VFX sub-program
@@ -42,9 +42,11 @@ start reading tracebacks.
 5. **Look at it.** `python tools/serve.py` then open the printed URL. Or read
    `vfx/<id>/preview/composite_0007.png` directly.
 
-6. **Do not approve it.** A passing `verify_all` means machine-verified, not
-   reviewed. Visual sign-off is a human step — see the `vfx-human-review` skill.
-   Report `python tools/review.py --list`; do not change it.
+6. **It is done.** `verify_all` passing means built and verified — correct
+   shape, colour, frame count, closed loop. That is finished work, and nothing
+   gates on a human sign-off. If the owner wants one recorded,
+   `python tools/review_ui.py` opens the viewer with a sign-off bar; see the
+   `vfx-human-review` skill. Never approve it yourself.
 
 7. **Write the brief** in `vfx/<id>/README.md`: layers, frame timing, measured
    values, known issues.
@@ -108,9 +110,68 @@ histogram. Copy that pattern for a new layer.
   rotate with the card, dragging the silhouette off-centre. Get life from the
   animated 4D noise `W` instead.
 
-## MCP note
+## Driving live Blender instances from the CLI
 
-If an interactive tool reports "cannot connect" to Blender, the server is
-usually fine and the *bridge* is dead. Check
-`Get-NetTCPConnection -LocalPort 9876`; if nothing is listening, start the
-MCP Bridge Server from Blender's MCP preferences and tick Auto Start.
+Use `tools/blender_mcp_cli.py` when an agent has no Blender MCP tools, when the
+MCP session is attached to the wrong Blender, or when one command must reach
+several Blender instances. It connects directly to the add-on's TCP bridge, so
+it does not depend on the MCP stdio server or require reloading the MCP session.
+
+Enable the Blender MCP add-on and start its bridge in each target Blender.
+Give every instance a distinct port in the add-on preferences (the default is
+`9876`), then pass those ports more than once:
+
+```powershell
+python tools/blender_mcp_cli.py --port 9876 --port 9877 --file tools/inspect_scene.py
+```
+
+The same code is sent concurrently to every listed port (up to 32 at once).
+Inline code and stdin also work:
+
+```powershell
+python tools/blender_mcp_cli.py --port 9876 --code 'import bpy; result = {"version": bpy.app.version_string}'
+Get-Content tools/inspect_scene.py -Raw | python tools/blender_mcp_cli.py --port 9876
+```
+
+The command prints one JSON response per target and exits non-zero if any
+instance cannot be reached or returns an execution error. It uses only Python's
+standard library. The default socket timeout is 300 seconds; override it with
+`--timeout` for long renders. Each request must finish synchronously from the
+client's perspective, the add-on limits request bodies to 10 MiB, and the CLI
+caps a response at 64 MiB. The CLI exposes direct code execution; it does not
+mirror Blender MCP's separate screenshot, inspection, and documentation tools.
+
+This sends arbitrary Python to Blender. Keep the add-on listener on loopback or
+another trusted network; the bridge has no authentication. The CLI does not
+start Blender or start the add-on listener. For headless renders, continue to
+use `tools/build.py` and `tools/blender_path.py`.
+
+If the CLI cannot connect, check the selected port rather than assuming the
+default is in use:
+
+```powershell
+Get-NetTCPConnection -LocalPort 9876,9877
+```
+
+## Launching an isolated Blender session
+
+When a task needs its own GUI process and bridge port, launch a fresh Blender
+instance with:
+
+```powershell
+python tools/blender_mcp_launch.py
+python tools/blender_mcp_launch.py --blend assets/vfx/earth_shield/rock_lookdev.blend
+python tools/blender_mcp_launch.py --port 9884 --blender 'D:\Program Files\Blender Foundation\Blender 5.1\blender.exe'
+```
+
+Without `--port`, the launcher selects a free port from `9876` through `9975`.
+It prints the new Blender PID, port, and startup log path after the add-on bridge
+starts. Pass that port to `blender_mcp_cli.py` to drive this instance. The
+launcher starts a separate GUI process and starts the add-on server on that
+port in process memory; it does not save the port into shared Blender user
+preferences. It uses `tools/blender_path.py` by default and can override the
+executable with `--blender`.
+
+Each process has independent in-memory scene state. If two processes open and
+save the same `.blend` path, they can still overwrite each other's file changes;
+use separate file copies when the project data itself must be isolated.

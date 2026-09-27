@@ -36,14 +36,25 @@ speculatively — put a working tool there first.
 ## Running things
 
 ```bash
-python tools/blender_path.py --all     # which Blender, and does it have MCP?
-python tools/pack_sheets.py            # sequences -> sheets
-python tools/serve.py                  # browser preview (needs a Phaser build)
+pip install -r requirements.txt   # numpy + Pillow
+python tools/doctor.py            # is this checkout ready? start here
+python tools/build.py             # build all, pack, verify
+python tools/serve.py             # browser preview (needs a Phaser build)
 ```
+
+`tools/build.py` is the entry point. It runs build → pack → verify in the only
+order that works, and it will not report success on a build that did not
+actually render — Blender exits 0 even when it cannot open a `--python` script,
+so exit codes alone are not trustworthy.
 
 `tools/blender_path.py` prefers the Blender that has the official MCP add-on
 (5.1 on `D:`) over the LTS install (5.2 on `C:`). They render differently, so
-do not hardcode one.
+do not hardcode one:
+
+```bash
+BLENDER=$(python tools/blender_path.py)
+"$BLENDER" --background --factory-startup --python tools/shield_idle.py
+```
 
 ## VFX sub-program shape
 

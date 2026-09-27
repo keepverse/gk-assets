@@ -1,0 +1,16 @@
+# Python packages needed by the asset tools.
+#
+#   pip install -r requirements.txt
+#
+# Blender itself is NOT a pip package and is not listed here - it is resolved
+# at runtime by tools/blender_path.py. `blender --version` is the check.
+#
+# numpy and Pillow are used by the verification tools and the sheet packer.
+# They are NOT needed to author or read an effect, only to build and verify one.
+
+numpy>=1.24
+Pillow>=10.0
+
+# Only needed for tools/test_viewer.py, which drives a real browser to prove
+# the preview boots. Comment out if you are not testing the viewer.
+# playwright>=1.40

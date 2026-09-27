@@ -12,11 +12,24 @@ the 3D-in-2D technique, and nine rig traps that each shipped a visibly wrong
 render before measurement caught it. Read it before authoring or editing an
 effect. It is the highest-value file in the repo.
 
+## First commands
+
+```bash
+pip install -r requirements.txt
+python tools/doctor.py      # is this checkout ready? non-zero if blocked
+python tools/build.py       # build all, pack, verify
+```
+
+Use `tools/build.py`, not the raw Blender invocations. It fixes the order
+(build → pack → verify) and refuses to report success on a build that did not
+actually render — Blender exits 0 even when it cannot open a script.
+
 ## Layout
 
 ```
-tools/          scripts. blender_path.py resolves a Blender; the rest are
-                build/verify/preview entry points.
+tools/          scripts. doctor.py checks the setup; build.py is the entry
+                point; blender_path.py resolves a Blender; the rest are
+                build/pack/verify/preview helpers.
 vfx/            VFX sub-programs. One dir per effect:
   index.json      list of effect ids
   <id>/
@@ -87,34 +100,35 @@ Start" breaks this, and the error message points at the wrong layer.
 ## Common tasks
 
 ```bash
-# build one effect (writes sequences/ and preview/)
-blender --background --factory-startup --python tools/shield_idle.py
+# everything: build, pack, verify
+python tools/build.py
 
-# rebuild every effect
-for s in idle rotate impact strengthen break; do
-  "$BLENDER" --background --factory-startup --python "tools/shield_$s.py"
-done
+# one sub-program
+python tools/build.py shield_fire_idle
 
-# pack sheets + refresh the index
-python tools/pack_sheets.py --write-index
-
-# verify everything
-blender --background --factory-startup --python tools/verify_all.py
+# is the checkout usable
+python tools/doctor.py
 
 # browser preview (needs a Phaser build; see tools/serve.py)
 python tools/serve.py
+
+# call Blender directly
+BLENDER=$(python tools/blender_path.py)
+"$BLENDER" --background --factory-startup --python tools/shield_idle.py
 ```
 
 ## Adding an effect
 
 1. `vfx/<id>/effect.json` — copy an existing one; it is the only place layout,
    blend mode, layer notes and known issues live.
-2. `tools/<id>.py` — import `shield_rig` and compose layers. Per-card materials
-   when a layer animates independently.
-3. Build, pack, verify.
-4. `vfx/<id>/README.md` — layers, frame timing, measured values, known issues.
+2. `tools/<name>.py` — import `shield_rig` and compose layers. Per-card
+   materials when a layer animates independently.
+3. Register `(id, script stem)` in `EFFECTS` in `tools/build.py`. The script
+   name is not always the effect id (`shield_fire_idle` → `shield_idle`).
+4. `python tools/build.py <id>`
+5. `vfx/<id>/README.md` — layers, frame timing, measured values, known issues.
 
-`pack_sheets.py --write-index` adds it to the sidebar.
+`pack_sheets.py --write-index` adds it to the viewer sidebar.
 
 ## What is not in scope here
 

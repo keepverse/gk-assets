@@ -10,6 +10,10 @@ description: Build or modify a Blender VFX sub-program in gk-assets - author a f
 Read `vfx/README.md`. It documents the rig and nine traps that each produced a
 visibly wrong render. Skipping it costs several debug cycles.
 
+Run `python tools/doctor.py` if anything misbehaves — it isolates the setup
+failure modes (no Blender, dead MCP bridge, missing pip package) before you
+start reading tracebacks.
+
 ## Workflow
 
 1. **Pick the Blender.** Never hardcode it.
@@ -18,19 +22,22 @@ visibly wrong render. Skipping it costs several debug cycles.
    python tools/blender_path.py --all
    ```
 
-2. **Author** in `tools/<id>.py`, importing `shield_rig`. One collection per
+2. **Author** in `tools/<name>.py`, importing `shield_rig`. One collection per
    layer, per-card materials when a layer animates independently (a shared
    material cannot give two cards different keyframed values).
 
-3. **Build and pack.**
+3. **Register** `(id, script stem)` in `EFFECTS` in `tools/build.py`. The script
+   name is not always the effect id: `shield_fire_idle` → `shield_idle`.
+
+4. **Build, pack and verify in one step:**
 
    ```bash
-   "$BLENDER" --background --factory-startup --python tools/<id>.py
-   python tools/pack_sheets.py --write-index
+   python tools/build.py <id>
    ```
 
-4. **Verify.** `tools/verify_all.py` must pass. It reads rendered PNGs, not the
-   build code, so it catches "exit 0 but garbage output".
+   That runs build → pack → verify in the only order that works, and refuses to
+   report success when a build did not actually render. Do not hand-roll the
+   three commands; that is how stale sheets ship.
 
 5. **Look at it.** `python tools/serve.py` then open the printed URL. Or read
    `vfx/<id>/preview/composite_0007.png` directly.

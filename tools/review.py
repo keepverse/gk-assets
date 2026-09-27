@@ -89,19 +89,57 @@ def cmd_list(_args) -> int:
     rows = []
     for eid in list_effects():
         r = load(eid)
-        rows.append((eid, r.get("status", "unreviewed"), r.get("reviewedBy", "-")))
+        # RECOMPUTE rather than reading the snapshot stored at record time. The
+        # stored "machine" string is frozen the moment a review is written, so
+        # reading it can never notice a later rebuild - which is exactly the
+        # case the stale flag exists to catch.
+        machine = machine_result(eid) if r.get("status") == "approved" \
+            else r.get("machine", "not verified yet")
+        stale = machine.startswith("stale")
+        rows.append((eid, r.get("status", "unreviewed"), r.get("reviewedBy", "-"), stale, machine))
+
     if not rows:
         print("no sub-programs found")
         return 0
+
     w = max(len(r[0]) for r in rows)
-    print("  %-*s  %-11s  %s" % (w, "SUB-PROGRAM", "REVIEW", "BY"))
-    for eid, status, who in rows:
-        mark = {"approved": "OK", "rejected": "REJECTED"}.get(status, "-")
-        print("  %-*s  %-11s  %s" % (w, eid, mark, who))
-    unreviewed = sum(1 for r in rows if r[1] == "unreviewed")
-    approved = sum(1 for r in rows if r[1] == "approved")
-    print("\n  %d approved, %d awaiting human review" % (approved, unreviewed))
-    return 0
+    print("  %-*s  %-9s  %-14s  %s" % (w, "SUB-PROGRAM", "REVIEW", "BY", "MACHINE"))
+    for eid, status, who, stale, machine in rows:
+        if status == "approved":
+            mark = "STALE" if stale else "OK"
+        elif status == "rejected":
+            mark = "REJECTED"
+        else:
+            mark = "pending"
+        print("  %-*s  %-9s  %-14s  %s" % (w, eid, mark, who, machine))
+
+    approved = sum(1 for r in rows if r[1] == "approved" and not r[3])
+    stale_n = sum(1 for r in rows if r[3])
+    pending = sum(1 for r in rows if r[1] == "unreviewed")
+    failed = [r for r in rows if r[1] == "approved" and r[4].startswith("FAIL")]
+
+    print()
+    if failed:
+        print("  %d APPROVED effect(s) now FAIL verification:" % len(failed))
+        for r in failed:
+            print("    %s: %s" % (r[0], r[4]))
+        print("  The build moved after the sign-off. Re-review before shipping.")
+    if stale_n:
+        print("  %d sign-off(s) STALE - the effect was rebuilt after review."
+              % stale_n)
+        print("  Re-review, then re-record. A sign-off covers the sheets that"
+              " existed when it was given.")
+    if pending:
+        print("  %d sub-program(s) machine-verified and awaiting human review."
+              % pending)
+        print("  Record with: python tools/review.py <id> --approve"
+              " --by \"<name>\" --note \"<what you saw>\"")
+    if approved and not pending and not stale_n and not failed:
+        print("  %d sub-program(s) reviewed and current." % approved)
+
+    # A stale or failing sign-off is a real inconsistency: exit non-zero so a
+    # script that checks review state cannot pass on a stale approval.
+    return 1 if (stale_n or failed) else 0
 
 
 def cmd_record(args) -> int:

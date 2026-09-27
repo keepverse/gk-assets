@@ -1,5 +1,18 @@
 # Ice Shield — Idle
 
+> **Review state: machine-verified, awaiting human review.**
+> The sheets were rebuilt (see [FIX-REPORT.md](FIX-REPORT.md)) and the look
+> changed — deeper and more saturated than the version previously signed off.
+> `review.json` was cleared rather than carried over, because the prior sign-off
+> covered sheets that no longer exist.
+>
+> **Read [REVIEW-PACKET.md](REVIEW-PACKET.md) before reviewing.** It has the
+> per-layer measurements and a side-by-side over both the lawn and the dark
+> viewer background.
+>
+> To record the decision:
+> `python tools/review.py shield_ice_idle --approve --by "<name>" --note "<what you saw>"`
+
 The idle effect is assembled from the three standalone, linked assets in
 [`assets/vfx/ice_shield`](../../assets/vfx/ice_shield/README.md). It
 uses one instance of each: shell, continuous rim, and crown shard. The actor
@@ -63,10 +76,14 @@ the transparent frames to the 128px cells declared in `effect.json`.
 
 ## Review state
 
-Machine-verified, and reviewed by the owner at the time of migration. See
-`review.json`; `python tools/review.py --list` shows every sub-program's state.
-Re-review if the effect is rebuilt, since a sign-off covers the sheets that
-existed when it was given.
+**Machine-verified. Not human-reviewed.** The sheets were regenerated and the
+look changed, so the previous sign-off was cleared rather than carried over —
+see [REVIEW-PACKET.md](REVIEW-PACKET.md) for the measurements and the
+side-by-side, and `python tools/review.py --list` for the current state.
+
+Re-review whenever the effect is rebuilt: a sign-off covers the sheets that
+existed when it was given. `review.py` reports the machine result and flags it
+as `stale` once the sheets change.
 
 Runtime wiring is intentionally out of scope. The repository documents the
 Unity `VfxDirector` path separately from this Blender-to-sprite/Phaser pipeline.

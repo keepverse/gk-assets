@@ -1,135 +1,255 @@
-# Fire Shield VFX
+# VFX sub-program pipeline
 
-Five sub-programs covering a fire shield's full lifecycle. Blender authors them,
-`sheets/*.png` are the deliverable, and the Phaser viewer previews them in the
-same engine the web game runs.
+A sub-program is a self-contained game asset: one effect, authored in Blender,
+delivered as packed sprite sheets, with a manifest that is the single source of
+truth. This is the **contract** — what a sub-program must contain and what the
+tools do with it. It is written for both rig styles, not just the fire shield.
 
-| Sub-program | Frames | Role |
-|---|---|---|
-| `shield_fire_idle` | 24 | Persistent aura. Loops. |
-| `shield_fire_rotate` | 36 | Baked Z turntable. Loops. Proves 3D-in-2D. |
-| `shield_fire_impact` | 24 | Absorbs a hit. One-shot. |
-| `shield_fire_strengthen` | 30 | Power-up. One-shot. |
-| `shield_fire_break` | 36 | Shield fails. One-shot. |
+## Registered sub-programs
+
+| Sub-program | Frames | Rig | Status |
+|---|---|---|---|
+| `shield_fire_idle` | 24 | procedural cards | ready |
+| `shield_fire_rotate` | 36 | procedural cards, turntable | ready |
+| `shield_fire_impact` | 24 | procedural cards | ready |
+| `shield_fire_strengthen` | 30 | procedural cards | ready |
+| `shield_fire_break` | 36 | procedural cards | ready |
+| `shield_ice_idle` | 24 | linked reusable meshes | ready |
+
+`shield_ice_lifecycle` exists as authoring scenes but is **not** a sub-program:
+it has no `effect.json` and produces no sheets, so no tool can consume it. It is
+a staging folder for the next ice authoring pass. See
+[Not a sub-program](#not-a-sub-program) below.
+
+## The contract
+
+```
+vfx/<id>/
+  effect.json      REQUIRED. the manifest
+  README.md        REQUIRED. the brief
+  <id>.blend       REQUIRED. the production scene
+  sheets/          REQUIRED, committed. the deliverable
+  sequences/       optional, ignored. per-layer renders
+  preview/         optional, ignored. flat composite frames
+  lookdev/         optional, ignored. opaque beauty stills for review
+```
+
+The tools read only `effect.json`, `sheets/` and `sequences/`. A sub-program
+that satisfies the contract works with every tool, and needs registering in
+exactly one place: `EFFECTS` in `tools/build.py`.
+
+### effect.json
+
+```jsonc
+{
+  "id": "shield_ice_idle",          // must match the directory name
+  "name": "Ice Shield - Idle",
+  "description": "...",
+  "status": "ready",                // wip | ready
+  "sprite": {
+    "resolution": 128,              // GAMEPLAY cell; sheets are this size
+    "frameCount": 24,
+    "fps": 24,
+    "columns": 6,                   // columns x rows must cover frameCount
+    "rows": 4
+  },
+  "anchor": { "x": 0.5, "y": 0.5 },  // pivot within a frame
+  "blend": "normal",                 // default for the effect
+  "layers": [
+    { "id": "shell", "sheet": "shell.png", "blend": "normal", "note": "..." }
+  ],
+  "projection": { "mode": "flat" }    // flat | turntable | angles
+}
+```
+
+Required fields: `id`, `sprite.{resolution,frameCount,columns,rows}`,
+`layers[].{id,sheet}`. Everything else is documentation the viewer surfaces.
+
+`projection.mode` tells the viewer how to treat the frames:
+
+- **`flat`** — fixed camera, each frame drawn as-is. The ice shield and four of
+  the five fire effects use this.
+- **`turntable`** — a baked rotation. The viewer applies a per-frame cosine
+  width curve so the silhouette narrows and widens as it turns; played as plain
+  squares it reads as a wobble. `shield_fire_rotate` uses this.
+- **`angles`** — reserved for multi-camera sheets.
+
+### README.md
+
+Layers and what each does, frame-by-frame timing, measured verification values,
+and **known issues**. An empty `knownIssues` is only honest if there genuinely
+are none.
+
+## Two rig styles
+
+Both produce identical artefacts. The difference is where the source of truth
+lives.
+
+**Procedural (fire).** `tools/shield_<name>.py` imports `shield_rig` and
+composes the effect from flat cards, materials and keyframes. The script is the
+source of truth; the `.blend` is a build artefact. Rerunning reproduces the
+scene exactly. Register in `EFFECTS` as `(id, script_stem)`.
+
+**Linked-asset (ice).** Meshes live as standalone reusable `.blend` files under
+`assets/vfx/<kit>/`, and the effect scene *links* them. Edit a source asset,
+rerun the builder, and the composition and sheets refresh. Two rules:
+
+- **A packed texture is not a source file.** If a `.blend` has a packed texture,
+  the original image must exist under `textures/` in the repository.
+- **Name the current version.** The ice kit accumulated `v2/`, `v3/`, `v4/` of
+  the same three meshes. Only one version is linked by the production scene;
+  the rest are lookdev history. Without a stated current version the next
+  person links the wrong one. This repo keeps the base kit only, and the
+  superseded versions stay in the game monorepo as reference.
 
 ## Build
 
-Each is an independent script sharing `shield_rig.py`:
-
 ```bash
-blender --background --factory-startup --python blender/tools/shield_idle.py
-blender --background --factory-startup --python blender/tools/shield_rotate.py
-blender --background --factory-startup --python blender/tools/shield_impact.py
-blender --background --factory-startup --python blender/tools/shield_strengthen.py
-blender --background --factory-startup --python blender/tools/shield_break.py
-
-python blender/tools/pack_sheets.py --write-index
-blender --background --factory-startup --python blender/tools/verify_all.py
-python blender/tools/serve.py     # then open the printed URL
+python tools/build.py                      # everything registered
+python tools/build.py shield_ice_idle      # one
 ```
 
-## The rig
+`build.py` runs **build → pack → verify**, in that order. The order is not
+cosmetic: packing before building ships stale sheets, and verifying before
+packing checks nothing.
 
-A shield is **not a dome mesh**. It is a ring of upright flame cards around a
-small hot core, with bright beads tracing the barrier's edge. A squashed sphere
-reads as a plastic ball at 128px no matter how the shader is tuned.
-
-Two things make the ring read as a volume rather than a stripe of fire:
-
-- **Depth-lift stagger.** Cards on the far side of the ring are tall and raised,
-  near-side cards short and low. With the 12-16 degree camera tilt that vertical
-  stagger is what reads as a dome.
-- **Rim beads.** A boundary of small bright dots. Without it the effect is a
-  fire cloud; with it, it is a barrier.
-
-## The 3D-in-2D technique
-
-`shield_fire_rotate` is a real 3D card cylinder rendered with an **orthographic**
-camera, so the projection has no perspective skew as the rig turns. Two cues sell
-the rotation:
-
-1. Cards genuinely travel around the ring, so the silhouette changes per frame.
-2. Each card has its own material copy whose emission is keyframed by depth
-   (0.22 at the back, 1.0 at the front). Without this it reads as a wobble.
-
-The manifest declares `projection.mode = "turntable"`, and the viewer applies a
-cosine width curve on top so the dome's projected width narrows and widens as it
-turns. Playing a 36-frame sheet as plain squares loses that entirely.
-
-A second phase — 8 fixed camera angles for true parallax — is the natural
-upgrade and reuses the same rig; it only adds render passes.
-
-## Conventions that are easy to get wrong
-
-Every one of these was a real bug, caught by measurement rather than by eye.
-They are all enforced or documented in `shield_rig.py`.
-
-- **Author at 512, deliver at 128.** `pack_sheets.py` downsamples. At 128 a card
-  is ~20-30px, so flame detail is sub-pixel and averages to a flat block.
-- **`view_transform = "Standard"`.** AgX is a filmic look that desaturates; fire
-  renders cream instead of orange.
-- **Emission strength ≤ 1.0.** These are sprite renders: shader RGB is written
-  straight to the PNG, so >1.0 clips every channel to white and destroys the hue
-  ramp. Brightness above "full" is expressed by scale and layer count instead.
-- **A ColorRamp Fac takes a SCALAR.** Feeding it the raw UV vector makes Blender
-  average x and y, giving a *diagonal* gradient. Always Separate XYZ and take
-  `.Y` for up, `.X` for across.
-- **A ColorRamp CLAMPS its Fac to 0..1.** A negative signal becomes 0, so a
-  white-at-0 stop turns the whole surface opaque. This produced a "solid
-  rectangle" flame that took several passes to find.
-- **The horizontal pinch needs ABS.** `|uv.x*2-1|` is 0..1 across the card; the
-  raw value is -1..1 and the negative half clamps to the opaque stop, making the
-  left half of every card a solid block.
-- **Multiply few masks, not many.** Four multiplied EASE ramps produced a smooth
-  gradient with fill ratio 0.925 — a rounded rectangle. Real fire needs one hard
-  threshold on the noise so the body is genuinely opaque with genuinely empty gaps.
-- **Noise Scale is cycles across the input.** UV spans 0..1, so Scale=11 on a card
-  is sub-pixel at 128. The detail noise threshold is placed against its measured
-  range (0..0.73, mean 0.51).
-- **`scene.frame_set(f)` is mandatory in the render loop.** `write_still` renders
-  the *current* frame; without advancing it every output is a copy of frame 1.
-  This shipped once already.
-- **`wipe()` must remove suffixed leftovers.** A plain select-all/delete leaves
-  auto-suffixed objects (`SF_Flame_00.001`) that accumulate as invisible
-  geometry inside the good ones.
+A build counts as successful only if it prints its own completion line.
+**Blender exits 0 even when it cannot open a `--python` script**, so exit codes
+alone are not trustworthy — this is why `build.py` ignores them.
 
 ## Verification
 
-`verify_all.py` asserts, from the rendered output rather than the build code:
+`verify_all.py` reads the **committed sheets**, not `preview/`. A fresh clone
+can be verified without running a build, which is deliberate: a checker that
+only works right after a build is not much of a check.
 
-- `effect.json` parses and its grid covers its frame count
-- every sheet tile is distinct (a large fraction collapsing to one value means the
-  timeline never advanced)
-- composite previews pass saturation / fill / silhouette-raggedness / aspect
-  criteria, sampled at frames where each effect is *intact*
-- looping effects have no empty frame and return close to their start
+It asserts manifest/grid agreement, that no layer's frames collapsed to
+duplicates, that composited frames meet the visual gates, and that looping
+effects have no empty frame and close their loop. Compositing the layers
+during verification mirrors what the game does at runtime.
 
-`test_flame_card.py` does the same for a single card, and `test_shield.py` for one
-composite. Measured on the shipped set:
+### Gates are per material, not global
 
-| Effect | saturation | fill | raggedness | h/w |
-|---|---|---|---|---|
-| idle | 0.39-0.42 | 0.20-0.31 | 0.48-0.58 | 0.63-0.71 |
-| impact / strengthen / break / rotate | all pass the same gates |
+**The shipped ranges below come from the fire shield. They do not transfer to a
+translucent effect.** A frost-glass shell is legitimately low-saturation and
+low-fill; gating it on the fire numbers would fail a correct asset.
 
-The `core` layers legitimately have few distinct frames (7/24 for idle) — a
-slowly breathing glow is repetitive by design, so the duplicate check allows it
-and only fails on a large collapse.
+| Gate | fire range | fails when | transfers to ice? |
+|---|---|---|---|
+| saturation (α-weighted R−B) | 0.15 – 0.36 | < 0.12 | **no — measure first** |
+| white fraction | 0 – 0.013 | > 0.10 | yes |
+| fill ratio | 0.011 – 0.365 | > 0.62 (lower advisory) | **no — measure first** |
+| silhouette raggedness | 0.46 – 0.94 | < 0.18 | yes |
+| bbox height / width | 0.44 – 0.90 | < 0.40 | yes |
 
-## Integration
+The shape gates transfer because a smooth ellipse and a flat band are wrong for
+a barrier in either material. The colour and density gates do not, because
+frost glass is *supposed* to be pale and thin.
 
-Not wired into the game. When it is:
+`SAMPLE_PER_EFFECT` in `verify_all.py` records which frames each effect is
+sampled at, because a one-shot's tail is legitimately sparse — `shield_fire_break`
+at frame 19 is falling cinders with no dome, and demanding a full barrier there
+would fail a correct effect.
 
-- **Phaser** (the web game, `web/fusion-rpg-web`): `load.spritesheet` with the
-  manifest's cell size, then `anims.create`. Route new sheets through
-  `requestSceneTexture` in `sceneArtState.ts` — it owns the de-dupe/in-flight
-  race a raw `load.spritesheet` would hit.
-- **The shield should be a child of the occupant container**, not a scene-root
-  object, so it inherits transform, scale and hit-area conventions. `BoardLayers`
-  has an `overlays` layer at depth 3000 that is currently empty.
-- **No blend modes exist in the game yet** (`setBlendMode` returns zero matches),
-  so these additive sheets would establish that convention.
-- There is **no y-sort**. The game has never needed one.
-- The in-game Unity layer (`docs/architecture/vfx-ssot.md` §12) is a separate
-  system, spec-locked to generated textures with no asset pipeline. These sheets
-  are not for it.
+**When you add a sub-program in a new material, measure its distribution and
+record it here and in `GATES` before trusting a pass.** A gate relaxed to
+accommodate a real design is worse than a documented exception.
+
+## Review gate
+
+`build.py` verifies automatically; **visual review is a human step and agents do
+not perform it.** An agent can prove a sprite is the right shape, the right size
+and the right colour. It cannot tell you whether the effect *reads* as a shield
+in motion on a bright lawn. That judgement stays with a person.
+
+So there are two states, and the tools enforce the first:
+
+1. **Machine-verifiable** — `verify_all.py` passes. `status` may be `wip`.
+2. **Human-reviewed** — someone opened the effect in the viewer, on the lawn
+   background, at gameplay scale, and accepted it. Recorded in
+   `review.json` next to the sub-program.
+
+`tools/review.py` records and clears the human sign-off. `build.py` reports
+which sub-programs have it, so "all verified" and "all reviewed" are never
+confused.
+
+## Conventions
+
+Pipeline-level, so they apply to every sub-program regardless of rig.
+
+**Resolution** — author at 512px, deliver at 128px. At 128 a card is ~20–30px,
+so detail is sub-pixel and averages to a flat block. The game's
+`actor-hud-elements` icon art is 128px, so that is the gameplay cell.
+
+**Colour** — `view_transform = "Standard"`. AgX is a filmic look that
+desaturates; saturated effects come out cream.
+
+**Emission ≤ 1.0 for sprite-style emissive shading.** Shader RGB is written
+straight to the PNG, so >1.0 clips every channel to white. This does **not**
+apply to a physically lit glass render (as the ice shell uses) — the
+constraint is about emission-based shading, not lit materials.
+
+**Alpha masks are driven by distance, not angle.** A radial mask must be
+`black at large distance → white at centre`. Getting the polarity backwards,
+plus the ColorRamp's Fac clamp, turns the whole surface opaque.
+
+**Sheets are committed; `sequences/`, `preview/` and `lookdev/` are not.**
+Sheets are what the game loads. The rest is build output.
+
+## Known traps
+
+Each shipped a visibly wrong render before measurement caught it.
+
+- `render_sequence` must call `scene.frame_set(frame)`; `write_still` renders
+  the *current* frame, so without it every output is identical.
+- `ShaderNodeMath` MULTIPLY_ADD silently falls back to defaults; spell constants
+  as explicit MULTIPLY then ADD/SUBTRACT so a wrong value is visible.
+- A `VectorMath` SUBTRACT with a `default_value` set **and** a link on the same
+  socket uses the link and drops the default — a sheared field (hard diagonal
+  seam) instead of a disc.
+- A ColorRamp Fac takes a SCALAR. Feeding it the raw UV vector makes Blender
+  average x and y, giving a diagonal gradient, not a vertical one.
+- A ColorRamp **clamps** its Fac to 0..1, so a negative signal becomes 0 and a
+  white-at-0 stop turns the whole surface opaque.
+- A horizontal pinch needs `ABS`. Without it the negative half of `uv.x*2-1`
+  clamps to the opaque stop and the left half of every card is solid.
+- Multiplying several EASE ramps gives a smooth gradient, not fire. Use one
+  hard threshold on the noise.
+- Noise Scale is cycles across the input; UV spans 0..1, so a high scale is
+  sub-pixel at 128px and averages flat.
+- `wipe()` must remove suffixed leftovers; a plain select-all/delete leaves
+  `SF_Flame_00.001` objects accumulating as invisible geometry.
+- Sheets are packed top-down; tiles are pasted without flipping.
+- Blender exits 0 even when it cannot open a `--python` script.
+- `Phaser.Scale.RESIZE` sizes to the parent's measured box; as a flex child
+  that can be the full document height, pushing the effect off-screen. Use
+  `FIT` with explicit dimensions.
+- A *linked* `.blend` breaks silently if its source asset is missing. Blender
+  opens the scene with the link unresolved and renders nothing. `doctor.py`
+  should be extended to check links before a linked rig is trusted.
+
+## Not a sub-program
+
+Authoring scenes, workbenches and lookdev files are legitimate in the repo and
+are not required to satisfy the contract. Keep them out of `vfx/index.json` or
+the viewer and verifier will try to consume artefacts that do not exist.
+
+`shield_ice_lifecycle` is the current example: six `.blend` files staging a
+cast/idle/impact/break timeline, with no manifest and no sheets. It becomes a
+sub-program when it gains an `effect.json` and produces sheets.
+
+## Engine target
+
+The browser preview is **Phaser 4**, the engine the web game runs. This repo is
+not the web workspace, so `tools/serve.py` resolves a Phaser build and serves
+it at a virtual `/__phaser/` route that the viewer's import map points at. An
+import map is parsed before any page script runs, so the substitution has to
+be server-side.
+
+Game-side integration is **not** done for any sub-program. The Phaser wiring,
+blend conventions and occupant-container parenting are specified but
+unimplemented.
+
+The in-game Unity VFX layer (`docs/architecture/vfx-ssot.md` in the game repo)
+is a **separate** system, spec-locked to generated textures with no asset
+pipeline. These sheets are not for it.

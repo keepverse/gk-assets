@@ -1,0 +1,47 @@
+{
+  "$comment": "Ice shield idle sub-program. The source meshes are separate reusable assets in blender/assets/vfx/ice_shield/; this manifest describes only the rendered gameplay layers.",
+  "id": "shield_ice_idle",
+  "name": "Ice Shield - Idle",
+  "description": "A sparse frostglass barrier around the actor: a translucent faceted shell, one continuous arch rim, and a single crown shard. No particle swarm.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "$comment": "Render at 512px, then pack_sheets downsamples to the 128px gameplay cell.",
+    "resolution": 128,
+    "frameCount": 24,
+    "fps": 24,
+    "durationMs": 1000,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 4
+  },
+  "anchor": {
+    "$comment": "Centered on the protected actor.",
+    "x": 0.5,
+    "y": 0.5
+  },
+  "blend": "normal",
+  "layers": [
+    {
+      "id": "shell",
+      "sheet": "shell.png",
+      "blend": "normal",
+      "note": "One linked frost-glass canopy with an open lower-front actor window, procedural fracture variation, and a subtle breathing loop."
+    },
+    {
+      "id": "rim",
+      "sheet": "rim.png",
+      "blend": "additive",
+      "note": "One linked continuous mesh arch, with a bright near edge and quieter far edge; no disconnected beads."
+    },
+    {
+      "id": "crystal",
+      "sheet": "crystal.png",
+      "blend": "additive",
+      "note": "One linked crown shard with a restrained slow tilt and pulse."
+    }
+  ],
+  "projection": {
+    "mode": "flat"
+  }
+}

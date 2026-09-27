@@ -236,6 +236,11 @@ tmp/
 tools/.smoke.png
 tools/**/.smoke.png
 
+# Cached verify_all result, read by tools/review.py to state whether the
+# machine check passed at the time of a human sign-off. Build state, not a
+# deliverable - and it goes stale the moment the sheets are rebuilt.
+vfx/*/.verify.json
+
 # Blender's rolling save next to each .blend - a duplicate of the previous
 # commit's file that only exists to recover an in-progress save.
 *.blend1

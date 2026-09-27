@@ -22,25 +22,64 @@ import numpy as np
 BLENDER_DIR = os.path.dirname(os.path.abspath(__file__))
 VFX_DIR = os.path.join(os.path.dirname(BLENDER_DIR), "vfx")
 
-LOOPING = {"shield_fire_idle", "shield_fire_rotate"}
+LOOPING = {"shield_fire_idle", "shield_fire_rotate", "shield_ice_idle"}
 
-# Visual gates. Calibrated by measuring every shipped effect at the 128px sheet
-# resolution (see vfx/README.md), NOT carried over from full-resolution previews:
-# the 4x downsample that produces the sheets genuinely lowers measured
-# saturation, so a gate tuned on a 512px preview is too strict here.
+# Visual gates, PER EFFECT.
 #
-#   saturation   shipped range 0.15 - 0.36. Gate at 0.12 so a genuinely
-#                desaturated or white-clipped effect fails.
-#   white frac   shipped max 0.013. Gate at 0.10.
-#   fill         upper bound is the real gate (a rectangle scores ~1.0). Lower
-#                bound is advisory: a thin effect legitimately covers little.
-#   raggedness   shipped 0.46 - 0.94. A rectangle is ~0.02.
-#   h/w          shipped 0.44 - 0.90. Below 0.40 is a flat band, not a dome.
-MIN_SAT = 0.12
-MAX_WHITE = 0.10
-MIN_FILL, MAX_FILL = 0.005, 0.62
-MIN_RAGGED = 0.18
-MIN_HW = 0.40
+# These are NOT global, and must not be made global. Saturation is measured as
+# mean(R - B), which is a warmth axis: fire is positive, frost glass is
+# genuinely NEGATIVE, and a single global floor fails a correct ice effect at
+# -0.16. Each material needs its own calibration, measured from its own
+# shipped sheets. See vfx/README.md.
+#
+#   fire   5 sub-programs, warm emissive, measured 0.15 - 0.36
+#   ice    1 sub-program,  cool translucent, measured -0.16 - -0.15
+#
+# Shape gates are material-independent (a smooth ellipse or flat band is wrong
+# for a barrier in any material), so they stay shared.
+DEFAULT_GATES = {
+    "minSat": 0.12,
+    "maxWhite": 0.10,
+    "minFill": 0.005,
+    "maxFill": 0.62,
+    "minRagged": 0.18,
+    "minHw": 0.40,
+}
+
+# Colour/density calibration per material. "default" is the fire numbers.
+# Add a material here rather than widening the default - a global relaxation
+# lets every other effect regress silently.
+MATERIAL_GATES = {
+    "fire": {},                       # use DEFAULT_GATES as calibrated
+    "ice": {
+        "$comment": ("Frost glass is cool and translucent by design. Measured on "
+                     "shipped sheets: sat -0.16, white 0.17, fill 0.39, ragged "
+                     "0.41, h/w 1.06. mean(R-B) is a WARMTH axis so a cool "
+                     "material is legitimately negative."),
+        "minSat": -0.30,
+        "maxWhite": 0.35,
+    },
+}
+
+# Which material each sub-program is. Add a key when adding an effect.
+EFFECT_MATERIAL = {
+    "shield_fire_idle": "fire",
+    "shield_fire_rotate": "fire",
+    "shield_fire_impact": "fire",
+    "shield_fire_strengthen": "fire",
+    "shield_fire_break": "fire",
+    "shield_ice_idle": "ice",
+}
+
+
+def gates_for(effect_id):
+    mat = EFFECT_MATERIAL.get(effect_id)
+    if mat is None:
+        return DEFAULT_GATES, "default (unregistered material - add it to EFFECT_MATERIAL)"
+    g = dict(DEFAULT_GATES)
+    g.update(MATERIAL_GATES.get(mat, {}))
+    g.pop("$comment", None)
+    return g, mat
 
 
 def load(path):
@@ -219,8 +258,13 @@ def check(effect_id):
         "shield_fire_strengthen": (0.15, 0.38, 0.75),
         # break: peak power is early, before the dome tears
         "shield_fire_break":      (0.06, 0.14, 0.25),
+        # ice idle is a steady breathing loop, so sample it like one
+        "shield_ice_idle":        (0.15, 0.50, 0.85),
     }
     fracs = SAMPLE_AT.get(effect_id, (0.25, 0.5, 0.75))
+    g, mat_name = gates_for(effect_id)
+    if mat_name.startswith("default"):
+        warns.append("no material registered for this effect; using default gates")
     for fr in fracs:
         fi = int(need * fr)
         if fi >= need:
@@ -234,21 +278,24 @@ def check(effect_id):
         if m is None:
             fails.append("%s: empty composite" % label)
             continue
-        if m["sat"] < MIN_SAT:
-            fails.append("%s: washed out, sat %.3f" % (label, m["sat"]))
-        if m["white"] > MAX_WHITE:
-            fails.append("%s: too white, %.3f" % (label, m["white"]))
+        if m["sat"] < g["minSat"]:
+            fails.append("%s: washed out, sat %.3f < %.2f (%s gates)"
+                         % (label, m["sat"], g["minSat"], mat_name))
+        if m["white"] > g["maxWhite"]:
+            fails.append("%s: too white, %.3f > %.2f (%s gates)"
+                         % (label, m["white"], g["maxWhite"], mat_name))
         # Fill is a shape-quality gate, not a size gate: a rectangle scores
         # ~1.0 and a lacy flame ~0.4, but a thin effect legitimately covers
         # little of the cell. Only the UPPER bound is meaningful, and a
         # near-solid frame is a real defect whichever way it fails.
-        if m["fill"] > MAX_FILL:
-            fails.append("%s: too solid, fill %.3f > %.2f" % (label, m["fill"], MAX_FILL))
-        elif m["fill"] < MIN_FILL:
+        if m["fill"] > g["maxFill"]:
+            fails.append("%s: too solid, fill %.3f > %.2f"
+                         % (label, m["fill"], g["maxFill"]))
+        elif m["fill"] < g["minFill"]:
             warns.append("%s: sparse, fill %.3f" % (label, m["fill"]))
-        if m["ragged"] < MIN_RAGGED:
+        if m["ragged"] < g["minRagged"]:
             fails.append("%s: silhouette too smooth, ragged %.3f" % (label, m["ragged"]))
-        if m["hw"] < MIN_HW:
+        if m["hw"] < g["minHw"]:
             fails.append("%s: too flat, h/w %.3f" % (label, m["hw"]))
 
     # These two are per-EFFECT, not per-frame, so they must sit outside the
@@ -277,6 +324,23 @@ def check(effect_id):
     return fails, warns
 
 
+def write_cache(eid, fails):
+    """Cache this effect's result for tools/review.py to read.
+
+    Recording a human sign-off should be able to state whether the machine
+    check passed at the time, without re-running Blender (which needs bpy and
+    costs render time). The cache is gitignored build state, not a deliverable.
+    """
+    try:
+        import time
+        path = os.path.join(VFX_DIR, eid, ".verify.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"effect": eid, "pass": not fails, "fails": fails,
+                       "checkedAt": time.time()}, fh, indent=2)
+    except OSError:
+        pass          # a missing cache only degrades review.py's context line
+
+
 def main():
     index_path = os.path.join(VFX_DIR, "index.json")
     with open(index_path, encoding="utf-8") as fh:
@@ -285,8 +349,9 @@ def main():
     print("verifying %d effects\n" % len(ids))
     total_fail = 0
     for eid in ids:
-        if not eid.startswith("shield_fire"):
-            continue
+        # Every registered sub-program is verified, whatever its material.
+        # An earlier version filtered to shield_fire only, which would have
+        # silently skipped the ice shield and reported a clean run.
         fails, warns = check(eid)
         print("%s" % eid)
         for w in warns:
@@ -295,6 +360,7 @@ def main():
             print("   FAIL: %s" % f)
         print("   %s" % ("OK" if not fails else "%d problem(s)" % len(fails)))
         total_fail += len(fails)
+        write_cache(eid, fails)
 
     print("\nRESULT:", "PASS" if total_fail == 0 else "FAIL (%d)" % total_fail)
     return 0 if total_fail == 0 else 1

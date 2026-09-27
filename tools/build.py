@@ -34,12 +34,17 @@ sys.path.insert(0, str(TOOLS))
 #
 # (id, script stem) - the script is not always the effect id: the effect is
 # shield_fire_idle but the builder is shield_idle.
+#
+# shield_ice_lifecycle is deliberately absent. It has authoring scenes but no
+# effect.json and produces no sheets, so it is a staging folder, not a
+# sub-program. See vfx/README.md "Not a sub-program".
 EFFECTS = (
     ("shield_fire_idle", "shield_idle"),
     ("shield_fire_rotate", "shield_rotate"),
     ("shield_fire_impact", "shield_impact"),
     ("shield_fire_strengthen", "shield_strengthen"),
     ("shield_fire_break", "shield_break"),
+    ("shield_ice_idle", "shield_ice_build"),
 )
 
 GREEN, RED, YELLOW, DIM, RESET = "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[0m"

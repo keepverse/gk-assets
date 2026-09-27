@@ -42,8 +42,23 @@ start reading tracebacks.
 5. **Look at it.** `python tools/serve.py` then open the printed URL. Or read
    `vfx/<id>/preview/composite_0007.png` directly.
 
-6. **Write the brief** in `vfx/<id>/README.md`: layers, frame timing, measured
+6. **Do not approve it.** A passing `verify_all` means machine-verified, not
+   reviewed. Visual sign-off is a human step — see the `vfx-human-review` skill.
+   Report `python tools/review.py --list`; do not change it.
+
+7. **Write the brief** in `vfx/<id>/README.md`: layers, frame timing, measured
    values, known issues.
+
+## Registering a new effect
+
+Add `(id, script stem)` to `EFFECTS` in `tools/build.py`, and add the id to
+`vfx/index.json` via `pack_sheets.py --write-index`.
+
+If the effect is a new **material**, also add a `MATERIAL_GATES` entry and an
+`EFFECT_MATERIAL` key in `verify_all.py` — the gates are per material, not
+global. Saturation is mean(R−B), a warmth axis: fire is positive, frost glass
+is legitimately negative. Measure the new effect's distribution before setting
+thresholds, and record the numbers in `vfx/README.md`.
 
 ## Measuring, not eyeballing
 

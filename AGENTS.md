@@ -56,8 +56,30 @@ about an asset should be backed by a number from `verify_all.py`,
 which property is wrong before tuning anything.
 
 **Verify before claiming done.** `tools/verify_all.py` must pass. It reads the
-rendered PNGs, not the build code, so it catches the failure mode that matters:
-a script that exits 0 while producing garbage.
+committed sheets, not the build code, so it catches the failure mode that
+matters: a script that exits 0 while producing garbage.
+
+**Never approve a review.** `tools/review.py` records a **human** visual
+sign-off into `vfx/<id>/review.json`. Do not run `--approve` or `--reject`
+yourself, and do not hand-write a `review.json`.
+
+You can prove a sprite is the right shape, size, colour, frame count, and that
+its loop closes. You cannot tell whether it reads as a shield in motion on a
+bright lawn — that judgement stays human.
+
+`verify_all.py` passing means *machine-verified*, which is **not** *reviewed*.
+The two states are tracked separately so they are never confused. If the owner
+tells you an effect works, you may record their decision with
+`--by "<their name>"` and their words as the note; attributing it to yourself
+would misstate who reviewed it. Report state with
+`python tools/review.py --list`; do not change it.
+
+**Gating is per material, not global.** Saturation is mean(R−B), a *warmth*
+axis: fire measures +0.15 to +0.36, frost glass −0.16. One global floor fails
+correct ice. Shape gates (raggedness, h/w, fill ceiling) are material-independent
+and shared. Adding an effect in a new material means measuring its distribution
+and adding a `MATERIAL_GATES` entry plus an `EFFECT_MATERIAL` key — never
+widening the default, which lets every other effect regress silently.
 
 **Do not hand-tune parameters into a build script without a reason.** If a
 number is magic, say why in a comment. If two effects need the same rig change,

@@ -1,0 +1,27 @@
+{
+  "$comment": "A one-second Ice Mirror deflection built from the saved idle scene. Exactly three hero crystals keep their vertical bubble motion.",
+  "id": "shield_ice_mirror_deflect",
+  "name": "Ice Shield - Mirror Deflect",
+  "description": "A shard strikes the upper-right hex, flashes with a prism glint, bends away, and clears with a short icy trail while the three idle crystals keep bobbing.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "resolution": 128,
+    "frameCount": 24,
+    "fps": 24,
+    "durationMs": 1000,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 4
+  },
+  "anchor": { "x": 0.5, "y": 0.5 },
+  "blend": "normal",
+  "layers": [
+    { "id": "crystals", "sheet": "crystals.png", "blend": "normal", "note": "Exactly three distinct prepared hero crystals bob on their existing vertical lanes; five minor shards remain secondary." },
+    { "id": "snowflakes", "sheet": "snowflakes.png", "blend": "normal", "note": "Eight small snowflake cards keep the idle's quiet companion motion." },
+    { "id": "body", "sheet": "body.png", "blend": "normal", "static": true, "note": "The same cold transparent, ground-pointing equal-sided hex holds at full size." },
+    { "id": "rim", "sheet": "rim.png", "blend": "additive", "static": true, "note": "One faint cyan outline follows the six-sided screen." },
+    { "id": "event", "sheet": "event.png", "blend": "normal", "note": "One faceted shard contacts the upper-right, bends up and away, and leaves a short frost trail." }
+  ],
+  "projection": { "mode": "flat" }
+}

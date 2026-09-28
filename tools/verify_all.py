@@ -27,7 +27,10 @@ TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 # until something actually called a Path method on it.
 VFX_DIR = pathlib.Path(TOOLS_DIR).parent / "vfx"
 
-LOOPING = {"shield_fire_idle", "shield_fire_rotate", "shield_ice_idle"}
+LOOPING = {
+    "shield_fire_idle", "shield_fire_rotate", "shield_ice_idle",
+    "shield_ice_mirror_idle", "shield_earth_idle",
+}
 
 # Visual gates, PER EFFECT.
 #
@@ -38,10 +41,12 @@ LOOPING = {"shield_fire_idle", "shield_fire_rotate", "shield_ice_idle"}
 # shipped sheets. See vfx/README.md.
 #
 #   fire   5 sub-programs, warm emissive, measured 0.15 - 0.36
-#   ice    1 sub-program,  cool translucent, measured -0.16 - -0.15
+#   ice    8 sub-programs, cool translucent, measured per effect
+#   earth  6 sub-programs, textured rocks, dome, and combat glows
 #
-# Shape gates are material-independent (a smooth ellipse or flat band is wrong
-# for a barrier in any material), so they stay shared.
+# Shape gates are material-independent and shared by default. The narrow
+# effect override below accounts for a mathematically regular hex whose valid
+# radial profile falls below the jagged-shape threshold without being a disc.
 DEFAULT_GATES = {
     "minSat": 0.12,
     "maxWhite": 0.10,
@@ -66,6 +71,25 @@ MATERIAL_GATES = {
         "minSat": -0.50,
         "maxWhite": 0.35,
     },
+    "earth": {
+        # Measured per effect from the Earth sheets; ranges and sampled values
+        # are recorded in the individual vfx/shield_earth_*/README.md briefs.
+        "minSat": 0.06,
+        "maxWhite": 0.02,
+    },
+}
+
+# Exact geometry exception: with top and bottom vertices on the vertical axis,
+# this regular six-edge screen measures fill 0.622 and radial variation 0.030
+# after rasterization. All other shape gates remain shared.
+EFFECT_GATE_OVERRIDES = {
+    "shield_ice_mirror_deploy": {"minRagged": 0.025, "maxFill": 0.63},
+    # Impact keeps the same mathematically regular hex boundary; its local
+    # fracture and lifted facets stay inside the screen silhouette.
+    "shield_ice_mirror_impact": {"minRagged": 0.025, "maxFill": 0.63},
+    "shield_ice_mirror_deflect": {"minRagged": 0.12, "maxFill": 0.60},
+    "shield_ice_mirror_absorb": {"minRagged": 0.12, "maxFill": 0.60},
+    "shield_ice_mirror_penetrate": {"minRagged": 0.12, "maxFill": 0.60},
 }
 
 # Which material each sub-program is. Add a key when adding an effect.
@@ -76,6 +100,19 @@ EFFECT_MATERIAL = {
     "shield_fire_strengthen": "fire",
     "shield_fire_break": "fire",
     "shield_ice_idle": "ice",
+    "shield_ice_mirror_idle": "ice",
+    "shield_ice_mirror_deploy": "ice",
+    "shield_ice_mirror_impact": "ice",
+    "shield_ice_mirror_deflect": "ice",
+    "shield_ice_mirror_absorb": "ice",
+    "shield_ice_mirror_penetrate": "ice",
+    "shield_ice_mirror_break": "ice",
+    "shield_earth_idle": "earth",
+    "shield_earth_impact": "earth",
+    "shield_earth_break": "earth",
+    "shield_earth_absorb": "earth",
+    "shield_earth_penetrate": "earth",
+    "shield_earth_deflect": "earth",
 }
 
 
@@ -85,6 +122,7 @@ def gates_for(effect_id):
         return DEFAULT_GATES, "default (unregistered material - add it to EFFECT_MATERIAL)"
     g = dict(DEFAULT_GATES)
     g.update(MATERIAL_GATES.get(mat, {}))
+    g.update(EFFECT_GATE_OVERRIDES.get(effect_id, {}))
     g.pop("$comment", None)
     return g, mat
 
@@ -95,7 +133,10 @@ def load(path):
     w, h = img.size
     buf = np.empty(w * h * 4, dtype=np.float32)
     img.pixels.foreach_get(buf)
-    arr = buf.reshape(h, w, 4).copy()   # native order: row 0 = bottom
+    # Blender exposes pixels bottom-up, but pack_sheets writes grid frames in
+    # PNG top-down order. Normalize once here so tile 0 is the first animation
+    # frame everywhere, including sample gates and loop-seam comparisons.
+    arr = buf.reshape(h, w, 4)[::-1, :, :].copy()
     bpy.data.images.remove(img)
     return arr
 
@@ -189,7 +230,11 @@ def check(effect_id):
         # identical by design. Only a LARGE fraction collapsing to one value
         # means the timeline never advanced.
         distinct = len({tiles[i] for i in live})
-        if distinct <= max(1, len(live) // 4):
+        if layer.get("static", False):
+            if distinct != 1:
+                fails.append("%s: declared static but has %d distinct tiles"
+                             % (layer["sheet"], distinct))
+        elif distinct <= max(1, len(live) // 4):
             fails.append("%s: %d live tiles but only %d distinct - timeline "
                          "likely did not advance" % (layer["sheet"], len(live), distinct))
         elif distinct < len(live):
@@ -267,6 +312,23 @@ def check(effect_id):
         "shield_fire_break":      (0.06, 0.14, 0.25),
         # ice idle is a steady breathing loop, so sample it like one
         "shield_ice_idle":        (0.15, 0.50, 0.85),
+        # The mirror idle bobs vertically in a closed loop; sample across its
+        # repeating bubble cycles.
+        "shield_ice_mirror_idle": (0.15, 0.50, 0.85),
+        # Sample the deploy screen during full hold, late hold, and its fade.
+        "shield_ice_mirror_deploy": (0.25, 0.50, 0.80),
+        # Sample the Ice Mirror impact before, during, and after its contact pulse.
+        "shield_ice_mirror_impact": (0.12, 0.30, 0.55),
+        "shield_ice_mirror_deflect": (0.209, 0.30, 0.709),
+        "shield_ice_mirror_absorb": (0.223, 0.45, 0.834),
+        "shield_ice_mirror_penetrate": (0.223, 0.556, 0.89),
+        "shield_ice_mirror_break": (0.14, 0.25, 0.70),
+        "shield_earth_idle":      (0.20, 0.50, 0.85),
+        "shield_earth_impact":    (0.12, 0.30, 0.55),
+        "shield_earth_break":     (0.06, 0.14, 0.25),
+        "shield_earth_absorb":    (0.25, 0.45, 0.75),
+        "shield_earth_penetrate": (0.12, 0.30, 0.55),
+        "shield_earth_deflect":   (0.12, 0.30, 0.55),
     }
     fracs = SAMPLE_AT.get(effect_id, (0.25, 0.5, 0.75))
     g, mat_name = gates_for(effect_id)

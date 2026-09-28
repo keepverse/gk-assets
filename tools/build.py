@@ -45,6 +45,19 @@ EFFECTS = (
     ("shield_fire_strengthen", "shield_strengthen"),
     ("shield_fire_break", "shield_break"),
     ("shield_ice_idle", "shield_ice_build"),
+    ("shield_ice_mirror_idle", "shield_ice_mirror_build"),
+    ("shield_ice_mirror_deploy", "ice_mirror_screen_build"),
+    ("shield_ice_mirror_impact", "ice_mirror_impact_build"),
+    ("shield_ice_mirror_deflect", "shield_ice_mirror_deflect"),
+    ("shield_ice_mirror_absorb", "shield_ice_mirror_absorb"),
+    ("shield_ice_mirror_penetrate", "shield_ice_mirror_penetrate"),
+    ("shield_ice_mirror_break", "shield_ice_mirror_break"),
+    ("shield_earth_idle", "earth_shield_build"),
+    ("shield_earth_impact", "earth_shield_impact"),
+    ("shield_earth_break", "earth_shield_break"),
+    ("shield_earth_absorb", "earth_shield_absorb"),
+    ("shield_earth_penetrate", "earth_shield_penetrate"),
+    ("shield_earth_deflect", "earth_shield_deflect"),
 )
 
 GREEN, RED, YELLOW, DIM, RESET = "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[0m"

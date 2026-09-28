@@ -153,6 +153,20 @@ default is in use:
 Get-NetTCPConnection -LocalPort 9876,9877
 ```
 
+## Rendering a local review video
+
+For an MP4 review copy of an existing Blender scene, run:
+
+```powershell
+python tools/render_video.py --blend assets/vfx/<asset>/<scene>.blend
+```
+
+It reads the scene's frame range and frame rate by default and writes to ignored
+`tmp/video/`. The renderer uses Blender's movie encoder when available; if that
+Blender build lacks movie support, it renders temporary PNG frames and encodes
+them with FFmpeg from `PATH`. It does not save changes to the source `.blend`.
+This is separate from the sprite-sheet build and does not register an effect.
+
 ## Launching an isolated Blender session
 
 When a task needs its own GUI process and bridge port, launch a fresh Blender

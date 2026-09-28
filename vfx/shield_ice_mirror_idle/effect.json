@@ -1,0 +1,59 @@
+{
+  "$comment": "Actor-free Ice Mirror idle. Exactly three prepared hero crystals bob on their existing vertical bubble lanes while one transparent hex screen deploys, receives a localized mirror impact, and fades during the 72-frame loop. Five minor shards and eight snowflake cards remain companions; there is no orbit or falling stream.",
+  "id": "shield_ice_mirror_idle",
+  "name": "Ice Shield - Mirror Bubble Idle",
+  "description": "Exactly three distinct glacier crystals keep their vertical bubble motion as a cold transparent hex screen expands, receives one localized mirror impact, holds, and fades. Five small shard companions and eight snowflakes remain secondary; the actor is omitted from the sprite.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+      "$comment": "Render at 512px, then pack_sheets downsamples to the 128px gameplay cell. At 12 fps, the three crystals complete two up/down bubble cycles in the six-second loop; the hex screen deploys, takes one mirror hit at frame 9, fades by frame 42, and stays hidden for the rest of the loop.",
+    "resolution": 128,
+    "frameCount": 72,
+    "fps": 12,
+    "durationMs": 6000,
+    "layout": "grid",
+    "columns": 8,
+    "rows": 9
+  },
+  "anchor": {
+    "$comment": "Centered on the protected actor's origin; the actor is omitted from the sprite.",
+    "x": 0.5,
+    "y": 0.5
+  },
+  "blend": "normal",
+  "layers": [
+    {
+      "id": "crystals",
+      "sheet": "crystals.png",
+      "blend": "normal",
+      "note": "Exactly three prepared major crystals bob vertically from fixed, staggered guard stations. Each completes two up/down cycles per loop and stays horizontally anchored; no orbit path is used. Five minor shards stay as local companions."
+    },
+    {
+      "id": "snowflakes",
+      "sheet": "snowflakes.png",
+      "blend": "normal",
+      "note": "Eight prepared branching, lance, and rosette cards drift near the three major crystals as small secondary companions; they do not form a separate orbit or falling stream."
+    },
+    {
+      "id": "body",
+      "sheet": "body.png",
+      "blend": "normal",
+      "note": "The transparent, cold-blue, equal-sided hex expands from actor center, holds through frame 27, then fades at full size by frame 42. One lower vertex points toward the ground."
+    },
+    {
+      "id": "rim",
+      "sheet": "rim.png",
+      "blend": "additive",
+      "note": "One translucent cyan outline follows the same regular six-sided screen; it fades with the body and contains no inner ring or spokes."
+    },
+    {
+      "id": "impact",
+      "sheet": "impact.png",
+      "blend": "normal",
+      "note": "One localized mirror hit starts as the hex reaches full size at frame 9. Its fracture and eight varied-size 3D facets clear by frame 28 while all three prepared hero crystals continue their existing vertical bob."
+    }
+  ],
+  "projection": {
+    "mode": "flat"
+  }
+}

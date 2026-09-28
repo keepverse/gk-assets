@@ -1,0 +1,23 @@
+{
+  "$comment": "Actor-free, 36-frame Earth Shield rupture sampled from a 24 fps Blender scene.",
+  "id": "shield_earth_break",
+  "name": "Earth Shield - Break",
+  "description": "The mineral shell flashes, fractures into curved panels, and the three guardian stones burst outward.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "resolution": 128,
+    "frameCount": 36,
+    "fps": 24,
+    "durationMs": 1500,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 6
+  },
+  "anchor": { "x": 0.5, "y": 0.5 },
+  "blend": "normal",
+  "layers": [
+    { "id": "earth", "sheet": "earth.png", "blend": "normal", "note": "One break composite: brief mineral shell flash, fractured shell panels, flying chips, and three orbit stones. No actor or guide geometry." }
+  ],
+  "projection": { "mode": "flat" }
+}

@@ -235,6 +235,16 @@ vfx/*/preview/
 # (the ice lookdev render alone is ~1.1 MB).
 vfx/*/lookdev/
 
+# Equivalent authoring renders produced beside reusable asset kits. Keep the
+# Blender scenes and source texture maps; regenerate frame dumps and review
+# stills from those sources instead of storing duplicate pixels in Git.
+assets/vfx/*/sequences/
+assets/vfx/*/preview/
+assets/vfx/*/lookdev/
+assets/vfx/*/review/
+assets/vfx/*/renders/
+assets/vfx/*/.verify.json
+
 # Scratch output from the test tools.
 tmp/
 tools/.smoke.png

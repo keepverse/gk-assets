@@ -1,0 +1,34 @@
+{
+  "$comment": "Actor-free Ice Mirror impact. The full-size equal-sided hex receives one localized angular fracture; eight varied-size bevelled 3D mirror facets lift and tilt toward camera, then clear. Idle crystals are not duplicated.",
+  "id": "shield_ice_mirror_impact",
+  "name": "Ice Shield - Mirror Impact",
+  "description": "One localized mirror fracture opens across the steady translucent hex as eight varied-size beveled facets lift and tilt toward camera, then clear.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "resolution": 128,
+    "frameCount": 24,
+    "fps": 24,
+    "durationMs": 1000,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 4
+  },
+  "anchor": {
+    "$comment": "Centered on the actor origin, matching the Ice Mirror idle screen.",
+    "x": 0.5,
+    "y": 0.5
+  },
+  "blend": "normal",
+  "layers": [
+    {
+      "id": "ice",
+      "sheet": "ice.png",
+      "blend": "normal",
+      "note": "One full-size, transparent, downward-pointing hex with a localized angular fracture and eight varied-size bevelled, extruded mirror facets that lift and tilt toward camera. No hero crystals or repeated screen web."
+    }
+  ],
+  "projection": {
+    "mode": "flat"
+  }
+}

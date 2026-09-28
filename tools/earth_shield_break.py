@@ -1,0 +1,11 @@
+"""Build the Earth Shield's shattering break response."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from earth_shield_combat import build_effect
+
+
+result = build_effect("break")
+print("EARTH_SHIELD_COMBAT_RESULT", result)

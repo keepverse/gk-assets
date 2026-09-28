@@ -1,0 +1,23 @@
+{
+  "$comment": "Actor-free, 24-frame Earth Shield deflection response sampled from a 24 fps Blender scene.",
+  "id": "shield_earth_deflect",
+  "name": "Earth Shield - Deflect",
+  "description": "A compact hit pulse bends the incoming stone away and sheds a few mineral chips.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "resolution": 128,
+    "frameCount": 24,
+    "fps": 24,
+    "durationMs": 1000,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 4
+  },
+  "anchor": { "x": 0.5, "y": 0.5 },
+  "blend": "normal",
+  "layers": [
+    { "id": "earth", "sheet": "earth.png", "blend": "normal", "note": "One deflect composite: incoming and redirected textured stone, tight shock arc, and restrained fragments. No actor or guide geometry." }
+  ],
+  "projection": { "mode": "flat" }
+}

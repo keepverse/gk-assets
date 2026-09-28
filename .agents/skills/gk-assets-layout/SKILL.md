@@ -30,8 +30,9 @@ render/   RESERVED for full-frame and video-still output
 video/    RESERVED for a video generator
 ```
 
-Both reserved dirs are intentionally empty. Do not add structure to them
-speculatively — put a working tool there first.
+These are output domains for future durable assets. Local review MP4s use
+`tools/render_video.py` and ignored `tmp/video/`; they do not populate either
+reserved domain.
 
 ## Running things
 
@@ -41,6 +42,12 @@ python tools/doctor.py            # is this checkout ready? start here
 python tools/build.py             # build all, pack, verify
 python tools/serve.py             # browser preview (needs a Phaser build)
 ```
+
+Render a local MP4 review copy from an existing Blender scene with
+`python tools/render_video.py --blend <scene.blend>`. It uses the scene's frame
+range and rate by default, writes under ignored `tmp/video/`, and leaves the
+source `.blend` unchanged. It uses Blender's movie encoder when available or
+FFmpeg from `PATH` otherwise; this does not create a registered game asset.
 
 `tools/build.py` is the entry point. It runs build → pack → verify in the only
 order that works, and it will not report success on a build that did not

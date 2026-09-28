@@ -1,0 +1,27 @@
+{
+  "$comment": "A 1.5-second Ice Mirror penetration built from the saved idle scene. Exactly three hero crystals keep their vertical bubble motion.",
+  "id": "shield_ice_mirror_penetrate",
+  "name": "Ice Shield - Mirror Penetrate",
+  "description": "One faceted shard crosses the hex, making separate angular entry and exit punctures while the three idle crystals keep bobbing.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "resolution": 128,
+    "frameCount": 36,
+    "fps": 24,
+    "durationMs": 1500,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 6
+  },
+  "anchor": { "x": 0.5, "y": 0.5 },
+  "blend": "normal",
+  "layers": [
+    { "id": "crystals", "sheet": "crystals.png", "blend": "normal", "note": "Exactly three distinct prepared hero crystals bob on their existing vertical lanes; five minor shards remain secondary." },
+    { "id": "snowflakes", "sheet": "snowflakes.png", "blend": "normal", "note": "Eight small snowflake cards keep the idle's quiet companion motion." },
+    { "id": "body", "sheet": "body.png", "blend": "normal", "static": true, "note": "The same cold transparent, ground-pointing equal-sided hex holds at full size." },
+    { "id": "rim", "sheet": "rim.png", "blend": "additive", "static": true, "note": "One faint cyan outline follows the six-sided screen." },
+    { "id": "event", "sheet": "event.png", "blend": "normal", "note": "One faceted projectile crosses left to right through two separate angular punctures." }
+  ],
+  "projection": { "mode": "flat" }
+}

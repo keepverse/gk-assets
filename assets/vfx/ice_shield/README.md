@@ -11,8 +11,9 @@ This is a small Blender-ready asset kit, not a precomposed effect sheet. Each
 
 ## Which version is current
 
-**The three files above are the current kit and the only ones linked by
-production scenes.** `shield_ice_idle` links exactly these.
+**The three files above are the current canopy kit.** The legacy
+`shield_ice_idle` scene links exactly these. The new mirror-flow effect uses
+the separate `ice_mirror_flow.blend` source scene below.
 
 The upstream repo accumulated `v2/`, `v3/` and `v4/` copies of the same three
 meshes as lookdev history. Those are **not** shipped and are **not** linked. They
@@ -38,6 +39,35 @@ dependencies. Their origins are aligned for easy placement: the shell and rim
 start at the ground plane, while the shard is centered around its own midpoint.
 The idle scene links the collections from these source files, so the animation
 does not copy their meshes or turn their geometry into a swarm.
+
+## Mirror-flow authoring scene
+
+[`ice_mirror_flow.blend`](ice_mirror_flow.blend) is the unanimated source scene
+for `shield_ice_mirror_idle`. It contains three reusable, faceted mirror guard
+collections (A, B, and C), a viewport-only actor and shield-field guide, the
+orthographic camera, and studio lighting. The production idle uses one hero
+crystal from each collection, keeping the count at exactly three. They bob up
+and down in fixed vertical lanes around the actor; they do not orbit, descend,
+or form repeated rows.
+
+The prepared source scene contains three distinct major crystal collections,
+one collection for each hero variant, plus five minor shards, eight snowflake
+cards, and a viewport-only actor guide. The production idle builder places
+exactly one major crystal from each collection in a staggered guard formation.
+Minor shards and snowflakes stay as local companions.
+
+The `MirrorFace`, `PrismFrame`, and `GuardShard` texture sets in
+[`textures/mirror_v1/`](textures/mirror_v1/) are assigned in the source scene.
+Each set contains base color, roughness, OpenGL normal, emission, and height
+maps. Regenerate the prepared scene and production effect from
+`tools/ice_shield_mirror_scene.py` and `tools/shield_ice_mirror_build.py` with:
+
+```powershell
+python tools/build.py shield_ice_mirror_idle
+```
+
+`tools/generate_ice_mirror_textures.py` reproduces the source maps and their
+ignored texture preview sheet.
 
 ## Not migrated
 

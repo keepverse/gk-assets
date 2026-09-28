@@ -1,0 +1,23 @@
+{
+  "$comment": "Actor-free, 36-frame Earth Shield absorption response sampled from a 24 fps Blender scene.",
+  "id": "shield_earth_absorb",
+  "name": "Earth Shield - Absorb",
+  "description": "An incoming stone reaches the shield center before a moss-lit contact pulse begins drawing it and loose fragments inward.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "resolution": 128,
+    "frameCount": 36,
+    "fps": 24,
+    "durationMs": 1500,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 6
+  },
+  "anchor": { "x": 0.5, "y": 0.5 },
+  "blend": "normal",
+  "layers": [
+    { "id": "earth", "sheet": "earth.png", "blend": "normal", "note": "One absorb composite: the incoming textured stone hits near the dome center first; a delayed moss-green pulse then draws it and a few fragments inward. No actor or guide geometry." }
+  ],
+  "projection": { "mode": "flat" }
+}

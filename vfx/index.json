@@ -1,11 +1,24 @@
 {
   "$comment": "Effect index. Lists ids only - the viewer then loads each vfx/<id>/effect.json, so effect.json stays the single source of truth. Regenerate with: python blender/tools/pack_sheets.py",
   "effects": [
+    "shield_earth_absorb",
+    "shield_earth_break",
+    "shield_earth_deflect",
+    "shield_earth_idle",
+    "shield_earth_impact",
+    "shield_earth_penetrate",
     "shield_fire_break",
     "shield_fire_idle",
     "shield_fire_impact",
     "shield_fire_rotate",
     "shield_fire_strengthen",
-    "shield_ice_idle"
+    "shield_ice_idle",
+    "shield_ice_mirror_absorb",
+    "shield_ice_mirror_break",
+    "shield_ice_mirror_deflect",
+    "shield_ice_mirror_deploy",
+    "shield_ice_mirror_idle",
+    "shield_ice_mirror_impact",
+    "shield_ice_mirror_penetrate"
   ]
 }

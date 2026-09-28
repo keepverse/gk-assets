@@ -1,0 +1,23 @@
+{
+  "$comment": "Actor-free, 24-frame Earth Shield contact flash sampled from a 24 fps Blender scene.",
+  "id": "shield_earth_impact",
+  "name": "Earth Shield - Impact",
+  "description": "A compact amber shock ring and brief mineral fracture flare at the hit point.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "resolution": 128,
+    "frameCount": 24,
+    "fps": 24,
+    "durationMs": 1000,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 4
+  },
+  "anchor": { "x": 0.5, "y": 0.5 },
+  "blend": "normal",
+  "layers": [
+    { "id": "earth", "sheet": "earth.png", "blend": "normal", "note": "One impact composite: transparent dome, compact shock ring, fracture flash, and a few stone chips. No actor or guide geometry." }
+  ],
+  "projection": { "mode": "flat" }
+}

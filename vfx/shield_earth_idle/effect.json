@@ -1,0 +1,35 @@
+{
+  "$comment": "Actor-free Earth Shield idle loop. Frames sample a 144-frame, 24 fps Blender cycle every other frame for a 72-frame, 12 fps game sheet.",
+  "id": "shield_earth_idle",
+  "name": "Earth Shield - Idle",
+  "description": "A transparent mineral dome grows from the ground, holds, retracts, and rests while textured guardian stones orbit continuously around it.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "$comment": "Render at 512px, then pack_sheets downsamples to the 128px gameplay cell.",
+    "resolution": 128,
+    "frameCount": 72,
+    "fps": 12,
+    "durationMs": 6000,
+    "layout": "grid",
+    "columns": 8,
+    "rows": 9
+  },
+  "anchor": {
+    "$comment": "Centered on the protected actor's origin; the actor is omitted from the sprites.",
+    "x": 0.5,
+    "y": 0.5
+  },
+  "blend": "normal",
+  "layers": [
+    {
+      "id": "earth",
+      "sheet": "earth.png",
+      "blend": "normal",
+      "note": "One transparent composite layer: the rising mineral dome, its warm reveal glow, and three compact textured orbiting stones with two small trailing chips each. No actor or guide geometry."
+    }
+  ],
+  "projection": {
+    "mode": "flat"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "$comment": "A 1.5-second Ice Mirror break built from the saved idle scene. Exactly three hero crystals keep their vertical bubble motion as three broad screen panels release.",
+  "id": "shield_ice_mirror_break",
+  "name": "Ice Shield - Mirror Break",
+  "description": "A compact hit releases three broad textured mirror facets and three small chips while the three idle crystals keep bobbing.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "resolution": 128,
+    "frameCount": 36,
+    "fps": 24,
+    "durationMs": 1500,
+    "layout": "grid",
+    "columns": 6,
+    "rows": 6
+  },
+  "anchor": { "x": 0.5, "y": 0.5 },
+  "blend": "normal",
+  "layers": [
+    { "id": "crystals", "sheet": "crystals.png", "blend": "normal", "note": "Exactly three distinct prepared hero crystals bob on their existing vertical lanes; five minor shards remain secondary." },
+    { "id": "snowflakes", "sheet": "snowflakes.png", "blend": "normal", "note": "Eight small snowflake cards keep the idle's quiet companion motion." },
+    { "id": "body", "sheet": "body.png", "blend": "normal", "note": "The same cold transparent, ground-pointing equal-sided hex fades as its three broad panels release." },
+    { "id": "rim", "sheet": "rim.png", "blend": "additive", "note": "One faint cyan outline follows the six-sided screen and clears with the break." },
+    { "id": "event", "sheet": "event.png", "blend": "normal", "note": "Three broad textured mirror panels separate and tilt in depth; three small chips add detail without a web of shards." }
+  ],
+  "projection": { "mode": "flat" }
+}

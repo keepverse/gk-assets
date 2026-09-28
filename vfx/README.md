@@ -15,6 +15,19 @@ tools do with it. It is written for both rig styles, not just the fire shield.
 | `shield_fire_strengthen` | 30 | procedural cards | ready |
 | `shield_fire_break` | 36 | procedural cards | ready |
 | `shield_ice_idle` | 24 | linked reusable meshes | ready |
+| `shield_ice_mirror_idle` | 72 | three vertical bubble-bobbing hero crystals + hex screen + one localized mirror impact | wip |
+| `shield_ice_mirror_deploy` | 42 | standalone transparent textured hex screen: expand, hold, fade | wip |
+| `shield_ice_mirror_impact` | 24 | steady hex screen + localized fracture and bevelled 3D facets | wip |
+| `shield_ice_mirror_deflect` | 24 | prism contact bends one shard away; three idle crystals continue bobbing | wip |
+| `shield_ice_mirror_absorb` | 36 | contact, cold lock, and inward frost dissolve; three idle crystals continue bobbing | wip |
+| `shield_ice_mirror_penetrate` | 36 | timed entry and exit punctures; three idle crystals continue bobbing | wip |
+| `shield_ice_mirror_break` | 36 | screen releases three broad facets and sparse chips; three idle crystals continue bobbing | wip |
+| `shield_earth_idle` | 72 | textured orbit rocks + dome | wip |
+| `shield_earth_impact` | 24 | textured dome contact response | wip |
+| `shield_earth_break` | 36 | fractured dome + three stones | wip |
+| `shield_earth_absorb` | 36 | inward stones + moss pulse | wip |
+| `shield_earth_penetrate` | 36 | entry/exit fractures | wip |
+| `shield_earth_deflect` | 24 | redirected textured stone | wip |
 
 `shield_ice_lifecycle` exists as authoring scenes but is **not** a sub-program:
 it has no `effect.json` and produces no sheets, so no tool can consume it. It is
@@ -35,8 +48,9 @@ vfx/<id>/
 ```
 
 The tools read only `effect.json`, `sheets/` and `sequences/`. A sub-program
-that satisfies the contract works with every tool, and needs registering in
-exactly one place: `EFFECTS` in `tools/build.py`.
+that satisfies the contract works with every tool. Register its builder in
+`EFFECTS` in `tools/build.py`, declare its material and calibrated gates in
+`tools/verify_all.py`, then let the packer write `vfx/index.json`.
 
 ### effect.json
 
@@ -63,7 +77,11 @@ exactly one place: `EFFECTS` in `tools/build.py`.
 ```
 
 Required fields: `id`, `sprite.{resolution,frameCount,columns,rows}`,
-`layers[].{id,sheet}`. Everything else is documentation the viewer surfaces.
+`layers[].{id,sheet}`. The optional `static` field is a verifier contract;
+other optional fields document the effect for the viewer.
+For a layer intentionally held identical across the one-shot, set
+`"static": true`; verification then requires one distinct packed tile instead
+of treating repeated frames as a stalled animation.
 
 `projection.mode` tells the viewer how to treat the frames:
 
@@ -144,7 +162,18 @@ low-fill; gating it on the fire numbers would fail a correct asset.
 
 The shape gates transfer because a smooth ellipse and a flat band are wrong for
 a barrier in either material. The colour and density gates do not, because
-frost glass is *supposed* to be pale and thin.
+frost glass is *supposed* to be pale and thin. A specified regular polygon can
+be a correct barrier shape even when the radial-variation metric reports it as
+too smooth; in that case use a narrow effect-specific override and document
+the measured geometry. Do not relax the shared default.
+
+`shield_ice_mirror_deploy` and `shield_ice_mirror_impact` reuse the same
+regular, ground-pointing hex: body and rim sides measure 1.72 and 1.90 Blender
+units, and the deploy sheet measures radial variation 0.030 and fill 0.622.
+The impact sheet measures fill 0.614–0.622 and radial variation 0.030–0.042;
+its localized fracture and facets stay inside the screen outline. Each effect has a narrow
+override for this geometry; neither face has spokes, inner rings, or a web
+pattern. See the individual effect README files for sampled measurements.
 
 `SAMPLE_PER_EFFECT` in `verify_all.py` records which frames each effect is
 sampled at, because a one-shot's tail is legitimately sparse — `shield_fire_break`
@@ -154,6 +183,10 @@ would fail a correct effect.
 **When you add a sub-program in a new material, measure its distribution and
 record it here and in `GATES` before trusting a pass.** A gate relaxed to
 accommodate a real design is worse than a documented exception.
+
+The Earth Shield family uses a 0.06 warmth floor and 0.02 white ceiling; the
+idle sheet and each combat response are measured in their own README after
+build. All share the shape gates.
 
 ## Review gate
 
@@ -220,6 +253,9 @@ Each shipped a visibly wrong render before measurement caught it.
 - `wipe()` must remove suffixed leftovers; a plain select-all/delete leaves
   `SF_Flame_00.001` objects accumulating as invisible geometry.
 - Sheets are packed top-down; tiles are pasted without flipping.
+- Blender's image pixel API is bottom-up. `verify_all.py` flips packed sheet
+  pixels back to top-down before indexing frames, or loop checks compare the
+  wrong tiles.
 - Blender exits 0 even when it cannot open a `--python` script.
 - `Phaser.Scale.RESIZE` sizes to the parent's measured box; as a flex child
   that can be the full document height, pushing the effect off-screen. Use

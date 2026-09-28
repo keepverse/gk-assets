@@ -1,0 +1,44 @@
+{
+  "$comment": "Actor-free one-shot deployment of the Ice Mirror shield body. The transparent equal-sided hex screen expands from the actor center, holds at full size, then fades at full size without collapsing.",
+  "id": "shield_ice_mirror_deploy",
+  "name": "Ice Shield - Mirror Screen Deploy",
+  "description": "A transparent, cold mirror screen with an equal-sided hexagonal silhouette, a ground-pointing lower corner, soft frost haze, and one clean outer rim. It grows from the actor center, holds fully expanded, then fades without collapsing.",
+  "status": "wip",
+  "author": "vfx-pipeline",
+  "sprite": {
+    "$comment": "Render at 512px, then downsample to the 128px gameplay cell. At 12 fps, the 42-frame one-shot lasts 3.5 seconds: expansion reaches full size at frame 9, holds through frame 27, then smoothly fades over 15 frames at full scale.",
+    "resolution": 128,
+    "frameCount": 42,
+    "fps": 12,
+    "durationMs": 3500,
+    "layout": "grid",
+    "columns": 7,
+    "rows": 6
+  },
+  "anchor": {
+    "$comment": "Centered on the protected actor; the actor is omitted from the sprite.",
+    "x": 0.5,
+    "y": 0.5
+  },
+  "blend": "normal",
+  "layers": [
+    {
+      "id": "body",
+      "sheet": "body.png",
+      "blend": "normal",
+      "note": "A low-contrast translucent sapphire frost haze uses the dedicated MirrorHexScreen texture without interior seams or spokes. The equal-sided body expands from center, holds, and fades while staying full size."
+    },
+    {
+      "id": "rim",
+      "sheet": "rim.png",
+      "blend": "additive",
+      "note": "One clean regular-hex frost rim with equal sides and angles; no inner ring or spokes. The cold cyan emission is translucent."
+    }
+  ],
+  "projection": {
+    "mode": "flat"
+  },
+  "knownIssues": [
+    "The pale frost rim may lose contrast over bright game backgrounds; review it at gameplay scale before approval."
+  ]
+}

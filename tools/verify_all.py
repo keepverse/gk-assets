@@ -40,7 +40,7 @@ LOOPING = {
 # -0.16. Each material needs its own calibration, measured from its own
 # shipped sheets. See vfx/README.md.
 #
-#   fire   5 sub-programs, warm emissive, measured 0.15 - 0.36
+#   fire   5 sub-programs, warm emissive, measured 0.15 - 0.51
 #   ice    8 sub-programs, cool translucent, measured per effect
 #   earth  6 sub-programs, textured rocks, dome, and combat glows
 #
@@ -83,6 +83,9 @@ MATERIAL_GATES = {
 # this regular six-edge screen measures fill 0.622 and radial variation 0.030
 # after rasterization. All other shape gates remain shared.
 EFFECT_GATE_OVERRIDES = {
+    # A deliberately round, translucent globe stays the dominant silhouette;
+    # its gas flames add soft irregularity rather than a spiky outer boundary.
+    "shield_fire_idle": {"minRagged": 0.08},
     "shield_ice_mirror_deploy": {"minRagged": 0.025, "maxFill": 0.63},
     # Impact keeps the same mathematically regular hex boundary; its local
     # fracture and lifted facets stay inside the screen silhouette.

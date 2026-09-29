@@ -247,6 +247,7 @@ assets/vfx/*/.verify.json
 
 # Scratch output from the test tools.
 tmp/
+/waveletNoiseTile.bin
 tools/.smoke.png
 tools/**/.smoke.png
 

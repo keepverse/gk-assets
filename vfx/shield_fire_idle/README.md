@@ -1,48 +1,44 @@
-# Fire Shield - Idle
+# Fire Shield - Idle v2
 
-Persistent aura. Loops seamlessly.
+A transparent 3D globe holds a gentle fire crown around the actor. Blender's
+native gas simulation provides the flames. Seven small emitters sit around the
+upper half of the sphere; three brief surface eruptions and seven cinders add
+life without turning the idle into a combat hit. The actor is intentionally
+absent from the rendered asset.
 
-**24 frames @ 24fps (1.0s) · 128px cell · 6×4 sheet · loops**
+**36 frames at 24 fps (1.5 s) · 128px gameplay cell · 6×6 sheet**
 
 ## Layers
 
-| Layer | Blend | What it does |
+| Layer | Blend | Content |
 |---|---|---|
-| `core` | additive | Small hot pool behind the flames (0.26 units, strength 0.6). |
-| `flames` | additive | 14 upright cards on a ring of radius 0.42, card height scaled by ring depth. |
-| `rim` | additive | 20 beads tracing the barrier edge on the same depth lift. |
-| `embers` | additive | 10 embers rising with drag and fade-out. |
+| `shell` | additive | Translucent shaded UV sphere and three curved front filaments. |
+| `flames` | additive | Blender gas-domain fire with seven small emitters and warm blackbody light. |
+| `bursts` | additive | Three staggered, small surface eruptions. |
+| `embers` | additive | Seven cinders on closed paths. |
 
-## Why it is a ring of cards, not a dome
+## Timing
 
-A squashed sphere reads as a plastic ball at 128px regardless of shading. A ring
-of upright flame cards with a **depth-lift stagger** (far side tall and raised,
-near side short and low) reads as a volume enclosing something, and the rim
-beads give it a boundary so it reads as a *barrier* rather than a fire cloud.
+- The simulation bakes frames 1–48. Frames 1–12 let the gas settle; frames
+  13–48 become the delivered loop.
+- The shell breathes once and the cinders trace closed paths over the 36
+  delivered frames.
+- The eruptions peak at 16%, 50%, and 83% of the loop.
+- The `.blend` scene and `tools/shield_idle.py` are the source. The generated
+  gas cache lives under ignored `tmp/fluid_fire_idle/`; run
+  `python tools/build.py shield_fire_idle` to regenerate it and the sheets.
 
 ## Measured
 
-From `verify_all.py`, 5 sampled frames:
-
-```
-saturation (R-B)     0.386 - 0.418
-fill ratio           0.200 - 0.311
-silhouette ragged    0.483 - 0.582
-bbox h/w             0.63 - 0.71
-white fraction max   0.064
-loop seam (f1 vs f24 mean alpha delta)  0.020  -> seamless
-```
-
-## Tuning
-
-`RADIUS`, `CARD_W`, `CARD_H` at the top of `tools/shield_idle.py`. Card width
-must stay under `2*pi*R / RING` or the ring closes into a solid band — that is
-what flattened an earlier build into a horizontal stripe.
+`python tools/build.py shield_fire_idle` passes the packed-sheet verifier.
+The 512px preview measures 7/255 alpha at the actor center and 105/255
+maximum alpha in the fire layer at frame 24. Mean first-to-last alpha
+difference is 0.0014 across the image (0.0032 in its upper quarter). The
+review MP4 contains two 36-frame loops at 24 fps.
 
 ## Known issues
 
-- Rim beads read slightly as a chain of separate balls rather than a continuous
-  edge. A continuous rim mesh would be cleaner but costs a separate alpha material.
-- The dome silhouette comes entirely from the depth-lift stagger, not real 3D
-  geometry, so rotating the unit would not rotate this shield. Use
-  `shield_fire_rotate` when the unit turns.
+- The gas simulation may make the first and last delivered flames differ
+  slightly; inspect the loop in the review video before final visual sign-off.
+- The asset contains only the shield effect. The protected actor is added by
+  the game.

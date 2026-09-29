@@ -9,7 +9,7 @@ tools do with it. It is written for both rig styles, not just the fire shield.
 
 | Sub-program | Frames | Rig | Status |
 |---|---|---|---|
-| `shield_fire_idle` | 24 | procedural cards | ready |
+| `shield_fire_idle` | 36 | transparent 3D globe, native gas fire, small eruptions and cinders | wip |
 | `shield_fire_rotate` | 36 | procedural cards, turntable | ready |
 | `shield_fire_impact` | 24 | procedural cards | ready |
 | `shield_fire_strengthen` | 30 | procedural cards | ready |
@@ -104,7 +104,7 @@ Both produce identical artefacts. The difference is where the source of truth
 lives.
 
 **Procedural (fire).** `tools/shield_<name>.py` imports `shield_rig` and
-composes the effect from flat cards, materials and keyframes. The script is the
+composes the effect from cards or lit meshes, materials and keyframes. The script is the
 source of truth; the `.blend` is a build artefact. Rerunning reproduces the
 scene exactly. Register in `EFFECTS` as `(id, script_stem)`.
 
@@ -148,16 +148,16 @@ during verification mirrors what the game does at runtime.
 
 ### Gates are per material, not global
 
-**The shipped ranges below come from the fire shield. They do not transfer to a
-translucent effect.** A frost-glass shell is legitimately low-saturation and
-low-fill; gating it on the fire numbers would fail a correct asset.
+**The shipped ranges below come from the fire shield. They do not transfer to
+frost glass or another cool material.** A frost-glass shell is legitimately
+low-saturation and low-fill; gating it on the fire numbers would fail a correct asset.
 
 | Gate | fire range | fails when | transfers to ice? |
 |---|---|---|---|
-| saturation (α-weighted R−B) | 0.15 – 0.36 | < 0.12 | **no — measure first** |
-| white fraction | 0 – 0.013 | > 0.10 | yes |
+| saturation (α-weighted R−B) | 0.15 – 0.51 | < 0.12 | **no — measure first** |
+| white fraction | 0 – 0.022 | > 0.10 | yes |
 | fill ratio | 0.011 – 0.365 | > 0.62 (lower advisory) | **no — measure first** |
-| silhouette raggedness | 0.46 – 0.94 | < 0.18 | yes |
+| silhouette raggedness | 0.259 – 0.94 | < 0.18 | yes |
 | bbox height / width | 0.44 – 0.90 | < 0.40 | yes |
 
 The shape gates transfer because a smooth ellipse and a flat band are wrong for

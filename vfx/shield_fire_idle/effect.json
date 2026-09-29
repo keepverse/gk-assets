@@ -1,69 +1,53 @@
 {
-  "$comment": "Manifest for a VFX sub-program. The viewer tool reads these; Blender scripts write them. Adding a new effect = add a new directory with one of these.",
-
+  "$comment": "Manifest for a VFX sub-program. The viewer reads this file as the layer and sheet contract.",
   "id": "shield_fire_idle",
-  "name": "Fire Shield - Idle",
-  "description": "Persistent fire shield aura: a ring of rising flame tongues around the unit, a hot core, bright beads tracing the barrier's edge, and embers drifting upward. Loops seamlessly.",
+  "name": "Fire Shield - Idle v2",
+  "description": "A transparent 3D globe with gentle simulated fire rising from its upper edge, small warm eruptions, and drifting cinders. The protected actor remains visible through the shield.",
   "status": "wip",
   "author": "vfx-pipeline",
-
   "sprite": {
-    "$comment": "resolution is the GAMEPLAY cell. Authoring is 512px and pack_sheets downsamples to 128, because flame detail is sub-pixel at 128 and averages to a flat block.",
+    "$comment": "Author at 512px and deliver at the 128px gameplay cell.",
     "resolution": 128,
-    "frameCount": 24,
+    "frameCount": 36,
     "fps": 24,
-    "durationMs": 1000,
+    "durationMs": 1500,
     "layout": "grid",
     "columns": 6,
-    "rows": 4
+    "rows": 6
   },
-
   "anchor": {
-    "$comment": "Normalized pivot within one frame. 0.5,0.5 = centre. The shield is anchored on the unit it protects.",
+    "$comment": "Normalized pivot at the centre of the shield globe.",
     "x": 0.5,
     "y": 0.5
   },
-
   "blend": "additive",
-
   "layers": [
     {
-      "id": "core",
-      "sheet": "core.png",
+      "id": "shell",
+      "sheet": "shell.png",
       "blend": "additive",
-      "note": "Small hot pool behind the flames. Deliberately small (0.26 units) and dim (strength 0.6) - at larger sizes it dominated and read as a pale egg."
+      "note": "Translucent shaded UV sphere with three short mesh filaments on its curved front surface; the actor stays visible through the globe."
     },
     {
       "id": "flames",
       "sheet": "flames.png",
       "blend": "additive",
-      "note": "14 upright cards on a ring of radius 0.42. Card height scales with ring depth so the far side is tall and the near side short - that vertical stagger is what reads as a dome rather than a band. Noise mapping scrolls upward for the rise."
+      "note": "Blender gas-domain fire rises softly from seven small emitters around the globe's upper half."
     },
     {
-      "id": "rim",
-      "sheet": "rim.png",
+      "id": "bursts",
+      "sheet": "bursts.png",
       "blend": "additive",
-      "note": "20 beads tracing the barrier edge, following the same depth lift. This is what makes it read as a BARRIER rather than a fire cloud."
+      "note": "Three staggered shield-surface micro-eruptions, each made from a glowing 3D core and five swept sparks."
     },
     {
       "id": "embers",
       "sheet": "embers.png",
       "blend": "additive",
-      "note": "10 embers rising with drag and fade-out."
+      "note": "Seven small 3D cinders drift around the globe on closed paths."
     }
   ],
-
-  "measured": {
-    "$comment": "From tools/test_shield.py over 5 sampled frames.",
-    "saturation_R_minus_B": [0.386, 0.418],
-    "fill_ratio": [0.20, 0.31],
-    "silhouette_raggedness": [0.483, 0.582],
-    "bbox_height_over_width": [0.63, 0.71],
-    "white_fraction_max": 0.064
-  },
-
   "knownIssues": [
-    "Rim beads read slightly as a chain of separate balls rather than a continuous edge. A continuous rim mesh would be cleaner but costs a separate alpha material.",
-    "Ring silhouette is a dome only because of the depth-lift stagger; it is not true 3D geometry, so rotating the unit would not rotate the shield."
+    "The render contains only the shield effect; the protected actor is intentionally absent."
   ]
 }
